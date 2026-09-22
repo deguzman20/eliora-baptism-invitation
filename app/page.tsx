@@ -36,6 +36,7 @@ const GODPARENTS = [
   "Sieder Villareal",
   "Ryan Bulot",
   "Maximiano Consul Jr.",
+  "Lorenz Pascual",
   "Jasmine Chavez",
   "Dwight Yanela",
   "Jesselle Caras",
