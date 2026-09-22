@@ -542,10 +542,13 @@ export default function Home() {
 
                   <p className="mt-3 text-[#916b76]">Your Church Name</p>
 
-                  <p className="text-sm text-[#a7838c]">Church Address</p>
+                  <p className="text-sm text-[#a7838c]">
+                    Saint Francis of Assisi and Santa Quiteria Parish Church
+                    (Diocese of Kalookan)
+                  </p>
 
                   <a
-                    href="https://maps.google.com"
+                    href="https://www.google.com/maps/place/Saint+Francis+of+Assisi+and+Santa+Quiteria+Parish+Church+(Diocese+of+Kalookan)/@14.6812817,121.0070118,17z/data=!3m1!4b1!4m6!3m5!1s0x3397b6b7c92dc5cb:0xe9526171acaec401!8m2!3d14.6812817!4d121.0095867!16s%2Fg%2F11r9khhhk?entry=ttu&g_ep=EgoyMDI2MDkxNi4wIKXMDSoASAFQAw%3D%3D"
                     target="_blank"
                     rel="noreferrer"
                     className="mt-6 inline-block rounded-full bg-[#d989a3] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#b85c7b]"
@@ -568,7 +571,18 @@ export default function Home() {
 
                   <p className="mt-3 text-[#916b76]">Your Reception Venue</p>
 
-                  <p className="text-sm text-[#a7838c]">Reception Address</p>
+                  <p className="text-sm text-[#a7838c]">
+                    Savory SM North Edsa Annex
+                  </p>
+
+                  <a
+                    href="https://www.google.com/maps/place/Classic+Savory/@14.6567301,121.0258151,17z/data=!3m1!4b1!4m6!3m5!1s0x3397b6e33fc4aa17:0x10bef2c6a7a15893!8m2!3d14.6567301!4d121.02839!16s%2Fg%2F11h15f228?entry=ttu&g_ep=EgoyMDI2MDkxNi4wIKXMDSoASAFQAw%3D%3D"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-6 inline-block rounded-full bg-[#d989a3] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#b85c7b]"
+                  >
+                    View Location
+                  </a>
                 </motion.div>
               </div>
             </Reveal>
