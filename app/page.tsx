@@ -264,9 +264,9 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="absolute bottom-[-1.4rem] left-1/2 z-30 flex h-20 w-20 -translate-x-1/2 items-center justify-center rounded-full border-8 border-[#f8dce6] bg-[#c87896] text-white shadow-xl">
+                  {/* <div className="absolute bottom-[-1.4rem] left-1/2 z-30 flex h-20 w-20 -translate-x-1/2 items-center justify-center rounded-full border-8 border-[#f8dce6] bg-[#c87896] text-white shadow-xl">
                     <Heart size={25} fill="currentColor" />
-                  </div>
+                  </div> */}
                 </div>
               </div>
 
