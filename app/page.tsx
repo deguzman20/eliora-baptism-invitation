@@ -14,6 +14,8 @@ import {
   ArrowDown,
   ArrowRight,
   CalendarDays,
+  Camera,
+  Download,
   Check,
   CheckCircle2,
   ChevronLeft,
@@ -24,6 +26,7 @@ import {
   MapPin,
   MessageCircleHeart,
   PartyPopper,
+  RotateCcw,
   Send,
   Shirt,
   Sparkles,
@@ -48,13 +51,13 @@ import { db } from "@/lib/firebase";
    EVENT DATA
 ========================================================= */
 
-const EVENT_DATE = "2026-11-22T10:00:00";
+const EVENT_DATE = "2026-11-22T10:30:00";
 
 const EVENT = {
   child: "Eliora Faye De Guzman",
   shortName: "Eliora Faye",
   date: "Sunday, November 22, 2026",
-  time: "10:00 AM",
+  time: "10:30 AM",
   church: "Saint Francis of Assisi and Santa Quiteria Parish Church",
   churchSubtitle: "(Diocese of Kalookan)",
   reception: "Savory SM North Edsa Annex",
@@ -97,18 +100,31 @@ type GalleryImage = {
   title: string;
 };
 
+type PhotoTemplate = {
+  id: string;
+  name: string;
+  subtitle: string;
+  slots: 1 | 2 | 3 | 4;
+  accent: string;
+  background: string;
+  border: string;
+  message: string;
+  style: "single" | "duo" | "trio" | "grid" | "masonry" | "portrait";
+};
+
 /* =========================================================
    DATA
 ========================================================= */
 
 const GODPARENTS = [
-  "Sieder Villareal",
   "Ryan Bulot",
+  "Sieder Villareal",
   "Maximiano Consul Jr.",
   "Lorenz Pascual",
   "Jasmine Chavez",
   "Dwight Yanela",
   "Jesselle Caras",
+  "Arvie Gacuma",
 ];
 
 const GALLERY: GalleryImage[] = [
@@ -135,6 +151,75 @@ const GALLERY: GalleryImage[] = [
   {
     src: "/eliora-faye.jpeg",
     title: "Surrounded by love",
+  },
+];
+
+const PHOTO_TEMPLATES: PhotoTemplate[] = [
+  {
+    id: "rose-portrait",
+    name: "Rose Portrait",
+    subtitle: "1 photo",
+    slots: 1,
+    accent: "#b85c7b",
+    background: "#fff7fa",
+    border: "#e8b5c5",
+    message: "A little blessing",
+    style: "single",
+  },
+  {
+    id: "sweet-duo",
+    name: "Sweet Duo",
+    subtitle: "2 photos",
+    slots: 2,
+    accent: "#9b6176",
+    background: "#fffaf7",
+    border: "#dfc1ca",
+    message: "Two little moments",
+    style: "duo",
+  },
+  {
+    id: "trinity",
+    name: "Trinity",
+    subtitle: "3 photos",
+    slots: 3,
+    accent: "#a15e77",
+    background: "#fff4f7",
+    border: "#e8b6c5",
+    message: "Faith • Love • Joy",
+    style: "trio",
+  },
+  {
+    id: "kikay-four",
+    name: "Kikay Four",
+    subtitle: "4 photos",
+    slots: 4,
+    accent: "#c05c83",
+    background: "#ffeaf2",
+    border: "#f0aec6",
+    message: "Eliora Faye ♡",
+    style: "grid",
+  },
+  {
+    id: "bloom-masonry",
+    name: "Bloom Masonry",
+    subtitle: "4 photos",
+    slots: 4,
+    accent: "#a86b7e",
+    background: "#fff8f2",
+    border: "#ddc1b0",
+    message: "Loved beyond measure",
+    style: "masonry",
+  },
+  {
+    id: "eliora-keepsake",
+    name: "Eliora Keepsake",
+    subtitle: "1 photo",
+    slots: 1,
+    accent: "#9b5d73",
+    background: "#fff6f8",
+    border: "#dcb1bf",
+    message: "November 22, 2026",
+    style: "portrait",
   },
 ];
 
@@ -544,7 +629,7 @@ export default function Home() {
   ========================================================= */
 
   const addToCalendar = () => {
-    const start = "20261122T100000";
+    const start = "20261122T103000";
     const end = "20261122T130000";
 
     const calendarData = [
@@ -939,7 +1024,7 @@ export default function Home() {
                       text="November 22, 2026"
                     />
 
-                    <InfoPill icon={<Clock3 size={15} />} text="10:00 AM" />
+                    <InfoPill icon={<Clock3 size={15} />} text="10:30 AM" />
                   </div>
 
                   <div className="mt-10 flex justify-center md:justify-start">
@@ -1067,7 +1152,7 @@ export default function Home() {
 
               <TimelineItem
                 number="01"
-                time="10:00 AM"
+                time="10:30 AM"
                 title="Baptism Ceremony"
                 description="Join us as Eliora receives the sacrament of baptism."
                 icon={<Church size={19} />}
@@ -1315,176 +1400,397 @@ export default function Home() {
             </Reveal>
           </section>
 
-          {/* GUESTBOOK */}
+          {/* =====================================================
+              PHOTO BOOTH
+          ===================================================== */}
 
-          <section id="guestbook" className="bg-[#fffaf8] px-6 py-28">
+          <PhotoBooth />
+
+          {/* =====================================================
+    GUESTBOOK
+===================================================== */}
+
+          <section
+            id="guestbook"
+            className="relative overflow-hidden bg-[#fffaf8] px-6 py-28"
+          >
+            <FloatingDecor />
+
             <Reveal>
               <SectionHeading
-                eyebrow="Leave a little love"
-                title="Guestbook"
-                description="Write a message for Eliora and the family."
+                eyebrow="A little love for Eliora"
+                title="Her Little Guestbook"
+                description="Leave a sweet message, a prayer, or a little wish for Eliora to read someday."
               />
             </Reveal>
 
-            <div className="mx-auto mt-14 grid max-w-5xl gap-10 md:grid-cols-[0.85fr_1.15fr]">
-              <Reveal>
-                <form
-                  onSubmit={handleGuestbookSubmit}
-                  className="rounded-[30px] border border-[#f1dce2] bg-white p-6 shadow-lg md:p-8"
-                >
-                  <MessageCircleHeart className="text-[#b85c7b]" size={25} />
+            <div className="relative z-10 mx-auto mt-16 max-w-6xl">
+              <div className="grid items-start gap-10 lg:grid-cols-[0.85fr_1.15fr]">
+                {/* =================================================
+          WRITE A MESSAGE
+      ================================================= */}
 
-                  <h3 className="mt-4 font-serif text-2xl text-[#8f5269]">
-                    Send a message
-                  </h3>
+                <Reveal>
+                  <div className="relative overflow-hidden rounded-[35px] border border-[#f0d9e1] bg-white p-7 shadow-xl shadow-[#d9a6b6]/10 md:p-9">
+                    {/* Decorative top */}
+                    <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#fce5ec]" />
 
-                  <p className="mt-2 text-sm leading-6 text-[#a57d8c]">
-                    Your message will become part of Eliora&apos;s little
-                    collection of memories.
-                  </p>
+                    <div className="relative">
+                      <div className="flex items-center justify-between">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fce5ec] text-[#b85c7b] shadow-sm">
+                          <MessageCircleHeart size={25} />
+                        </div>
 
-                  <div className="mt-7">
-                    <label className="text-sm font-medium text-[#8f5269]">
-                      Your name
-                    </label>
-
-                    <input
-                      value={guestName}
-                      onChange={(event) => {
-                        setGuestName(event.target.value);
-
-                        if (guestErrors.name) {
-                          setGuestErrors((prev) => ({
-                            ...prev,
-                            name: "",
-                          }));
-                        }
-                      }}
-                      maxLength={80}
-                      placeholder="Enter your name"
-                      className="mt-2 w-full rounded-xl border border-[#ead5dc] bg-[#fffafc] px-4 py-3 text-sm outline-none transition focus:border-[#c9899f] focus:ring-2 focus:ring-[#c9899f]/10"
-                    />
-
-                    {guestErrors.name && (
-                      <p className="mt-1 text-xs text-red-500">
-                        {guestErrors.name}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="mt-5">
-                    <label className="text-sm font-medium text-[#8f5269]">
-                      Your message
-                    </label>
-
-                    <textarea
-                      value={guestMessage}
-                      onChange={(event) => {
-                        setGuestMessage(event.target.value);
-
-                        if (guestErrors.message) {
-                          setGuestErrors((prev) => ({
-                            ...prev,
-                            message: "",
-                          }));
-                        }
-                      }}
-                      maxLength={500}
-                      rows={5}
-                      placeholder="Write something sweet..."
-                      className="mt-2 w-full resize-none rounded-xl border border-[#ead5dc] bg-[#fffafc] px-4 py-3 text-sm outline-none transition focus:border-[#c9899f] focus:ring-2 focus:ring-[#c9899f]/10"
-                    />
-
-                    <div className="mt-1 flex justify-between">
-                      {guestErrors.message ? (
-                        <p className="text-xs text-red-500">
-                          {guestErrors.message}
-                        </p>
-                      ) : (
-                        <span />
-                      )}
-
-                      <span className="text-xs text-[#b99aa5]">
-                        {guestMessage.length}/500
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    disabled={isSubmittingGuestbook}
-                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#b85c7b] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#a84f6d] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isSubmittingGuestbook ? "Sending..." : "Send Love"}
-
-                    <Send size={16} />
-                  </button>
-                </form>
-              </Reveal>
-
-              <Reveal delay={0.12}>
-                <div>
-                  {displayedGuests.length === 0 ? (
-                    <div className="flex min-h-[300px] items-center justify-center rounded-[30px] border border-dashed border-[#e4c6d1] bg-white/60 p-8 text-center">
-                      <div>
-                        <Heart className="mx-auto text-[#d79bae]" size={28} />
-
-                        <p className="mt-4 font-serif text-xl text-[#8f5269]">
-                          Be the first to leave some love.
-                        </p>
-
-                        <p className="mt-2 text-sm text-[#aa8592]">
-                          Your message could be the first memory in
-                          Eliora&apos;s guestbook.
-                        </p>
+                        <div className="flex items-center gap-1 text-[#d79bae]">
+                          <Heart size={13} fill="currentColor" />
+                          <Heart size={10} fill="currentColor" />
+                          <Heart size={13} fill="currentColor" />
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {displayedGuests.map((entry, index) => (
-                        <motion.div
-                          key={entry.id}
-                          initial={{
-                            opacity: 0,
-                            y: 15,
-                          }}
-                          animate={{
-                            opacity: 1,
-                            y: 0,
-                          }}
-                          transition={{
-                            delay: index * 0.05,
-                          }}
-                          className="rounded-2xl border border-[#f0dfe4] bg-white p-5 shadow-sm"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fce5ec] text-[#b85c7b]">
-                              <Heart size={15} fill="currentColor" />
-                            </div>
 
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-medium text-[#8f5269]">
-                                  {entry.name}
-                                </p>
+                      <p className="mt-7 text-[10px] uppercase tracking-[0.3em] text-[#b9788d]">
+                        Leave a little love
+                      </p>
 
-                                {entry.createdAt && (
-                                  <span className="text-[10px] text-[#b89aa6]">
-                                    {formatGuestDate(entry.createdAt)}
-                                  </span>
-                                )}
-                              </div>
+                      <h3 className="mt-2 font-serif text-3xl text-[#8f5269]">
+                        Write for Eliora
+                      </h3>
 
-                              <p className="mt-2 text-sm leading-6 text-[#9c7b87]">
-                                {entry.message}
-                              </p>
+                      <p className="mt-3 text-sm leading-7 text-[#a17e8b]">
+                        Your words will become part of a little collection of
+                        memories for Eliora and her family.
+                      </p>
+
+                      <form onSubmit={handleGuestbookSubmit} className="mt-8">
+                        {/* NAME */}
+
+                        <div>
+                          <label className="text-xs font-medium uppercase tracking-[0.16em] text-[#8f5269]">
+                            Your name
+                          </label>
+
+                          <div className="relative mt-2">
+                            <input
+                              value={guestName}
+                              onChange={(event) => {
+                                setGuestName(event.target.value);
+
+                                if (guestErrors.name) {
+                                  setGuestErrors((prev) => ({
+                                    ...prev,
+                                    name: "",
+                                  }));
+                                }
+                              }}
+                              maxLength={80}
+                              placeholder="e.g. Auntie Joy"
+                              className={`w-full rounded-2xl border bg-[#fffafc] px-4 py-3.5 text-sm text-[#71495a] outline-none transition placeholder:text-[#c5aab4] ${
+                                guestErrors.name
+                                  ? "border-red-400"
+                                  : "border-[#ead5dc] focus:border-[#c9899f] focus:bg-white focus:ring-4 focus:ring-[#fce5ec]"
+                              }`}
+                            />
+
+                            <Heart
+                              size={15}
+                              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#d49aac]"
+                            />
+                          </div>
+
+                          {guestErrors.name && (
+                            <motion.p
+                              initial={{ opacity: 0, y: -3 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="mt-1.5 text-xs text-red-500"
+                            >
+                              {guestErrors.name}
+                            </motion.p>
+                          )}
+                        </div>
+
+                        {/* MESSAGE */}
+
+                        <div className="mt-5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-medium uppercase tracking-[0.16em] text-[#8f5269]">
+                              Your message
+                            </label>
+
+                            <span className="text-[10px] text-[#c09da9]">
+                              {guestMessage.length}/500
+                            </span>
+                          </div>
+
+                          <div className="relative mt-2">
+                            <textarea
+                              value={guestMessage}
+                              onChange={(event) => {
+                                setGuestMessage(event.target.value);
+
+                                if (guestErrors.message) {
+                                  setGuestErrors((prev) => ({
+                                    ...prev,
+                                    message: "",
+                                  }));
+                                }
+                              }}
+                              maxLength={500}
+                              rows={6}
+                              placeholder="Write a prayer, wish, or something sweet for Eliora..."
+                              className={`w-full resize-none rounded-2xl border bg-[#fffafc] px-4 py-4 text-sm leading-7 text-[#71495a] outline-none transition placeholder:text-[#c5aab4] ${
+                                guestErrors.message
+                                  ? "border-red-400"
+                                  : "border-[#ead5dc] focus:border-[#c9899f] focus:bg-white focus:ring-4 focus:ring-[#fce5ec]"
+                              }`}
+                            />
+
+                            <div className="pointer-events-none absolute bottom-4 right-4 text-[#e2b5c3]">
+                              <Sparkles size={16} />
                             </div>
                           </div>
-                        </motion.div>
-                      ))}
+
+                          {guestErrors.message && (
+                            <motion.p
+                              initial={{ opacity: 0, y: -3 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="mt-1.5 text-xs text-red-500"
+                            >
+                              {guestErrors.message}
+                            </motion.p>
+                          )}
+                        </div>
+
+                        {/* SUBMIT */}
+
+                        <motion.button
+                          type="submit"
+                          disabled={isSubmittingGuestbook}
+                          whileHover={
+                            !isSubmittingGuestbook
+                              ? {
+                                  y: -2,
+                                  scale: 1.01,
+                                }
+                              : undefined
+                          }
+                          whileTap={
+                            !isSubmittingGuestbook
+                              ? {
+                                  scale: 0.98,
+                                }
+                              : undefined
+                          }
+                          className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#b85c7b] px-5 py-4 text-sm font-medium text-white shadow-lg shadow-[#b85c7b]/20 transition disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isSubmittingGuestbook ? (
+                            <>
+                              <motion.span
+                                animate={{
+                                  rotate: 360,
+                                }}
+                                transition={{
+                                  duration: 1,
+                                  repeat: Infinity,
+                                  ease: "linear",
+                                }}
+                                className="block"
+                              >
+                                <Sparkles size={16} />
+                              </motion.span>
+                              Saving your message...
+                            </>
+                          ) : (
+                            <>
+                              Send a Little Love
+                              <Heart size={16} fill="currentColor" />
+                            </>
+                          )}
+                        </motion.button>
+
+                        <p className="mt-4 flex items-center justify-center gap-1.5 text-[10px] text-[#b99aa5]">
+                          <Sparkles size={11} />
+                          Your message will be kept as a sweet memory.
+                          <Sparkles size={11} />
+                        </p>
+                      </form>
                     </div>
-                  )}
-                </div>
-              </Reveal>
+                  </div>
+                </Reveal>
+
+                {/* =================================================
+          MEMORY WALL
+      ================================================= */}
+
+                <Reveal delay={0.12}>
+                  <div>
+                    {/* Header */}
+
+                    <div className="mb-6 flex items-end justify-between">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-[#b9788d]">
+                          Messages from loved ones
+                        </p>
+
+                        <h3 className="mt-2 font-serif text-3xl text-[#8f5269]">
+                          Little notes
+                        </h3>
+                      </div>
+
+                      {guestEntries.length > 0 && (
+                        <div className="flex items-center gap-2 rounded-full border border-[#efdce3] bg-white px-3 py-1.5 text-xs text-[#a77c8a] shadow-sm">
+                          <Heart
+                            size={12}
+                            fill="currentColor"
+                            className="text-[#c9899f]"
+                          />
+                          {guestEntries.length}{" "}
+                          {guestEntries.length === 1 ? "message" : "messages"}
+                        </div>
+                      )}
+                    </div>
+
+                    {displayedGuests.length === 0 ? (
+                      /* EMPTY STATE */
+
+                      <motion.div
+                        initial={{
+                          opacity: 0,
+                          scale: 0.97,
+                        }}
+                        animate={{
+                          opacity: 1,
+                          scale: 1,
+                        }}
+                        className="relative flex min-h-[430px] flex-col items-center justify-center overflow-hidden rounded-[35px] border border-dashed border-[#e5c6d1] bg-white/70 px-8 text-center shadow-sm"
+                      >
+                        <div className="absolute left-8 top-8 rotate-[-12deg] text-[#edc5d0]">
+                          <Heart size={20} fill="currentColor" />
+                        </div>
+
+                        <div className="absolute right-10 top-12 rotate-[15deg] text-[#edc5d0]">
+                          <Sparkles size={22} />
+                        </div>
+
+                        <div className="absolute bottom-10 left-12 rotate-[10deg] text-[#edc5d0]">
+                          <Sparkles size={17} />
+                        </div>
+
+                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#fce5ec] text-[#b85c7b] shadow-sm">
+                          <Heart size={31} fill="currentColor" />
+                        </div>
+
+                        <p className="mt-7 font-serif text-2xl text-[#8f5269]">
+                          The first little note
+                        </p>
+
+                        <p className="mx-auto mt-3 max-w-sm text-sm leading-7 text-[#aa8592]">
+                          Be the first person to leave a prayer, wish, or sweet
+                          message for Eliora.
+                        </p>
+
+                        <div className="mt-7 flex items-center gap-3 text-[#d394a8]">
+                          <span className="h-px w-10 bg-[#ebccd5]" />
+                          <Heart size={12} fill="currentColor" />
+                          <span className="h-px w-10 bg-[#ebccd5]" />
+                        </div>
+                      </motion.div>
+                    ) : (
+                      /* MEMORY CARDS */
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {displayedGuests.map((entry, index) => (
+                          <motion.article
+                            key={entry.id}
+                            initial={{
+                              opacity: 0,
+                              y: 20,
+                              scale: 0.97,
+                            }}
+                            animate={{
+                              opacity: 1,
+                              y: 0,
+                              scale: 1,
+                            }}
+                            transition={{
+                              delay: index * 0.06,
+                              duration: 0.5,
+                            }}
+                            whileHover={{
+                              y: -5,
+                              rotate: index % 2 === 0 ? -0.5 : 0.5,
+                            }}
+                            className="group relative overflow-hidden rounded-[25px] border border-[#f0dfe4] bg-white p-5 shadow-md shadow-[#d7a6b5]/10"
+                          >
+                            {/* little decorative tape */}
+
+                            <div
+                              className={`absolute -top-1 left-1/2 h-5 w-16 -translate-x-1/2 rotate-[-2deg] bg-[#f5dce4]/80 opacity-70 ${
+                                index % 2 === 0 ? "" : "rotate-[3deg]"
+                              }`}
+                            />
+
+                            <div className="flex items-start gap-3 pt-2">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#fce5ec] text-[#b85c7b]">
+                                <Heart size={15} fill="currentColor" />
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <p className="font-serif text-lg text-[#8f5269]">
+                                      {entry.name}
+                                    </p>
+
+                                    {entry.createdAt && (
+                                      <p className="mt-0.5 text-[10px] uppercase tracking-[0.12em] text-[#b99aa5]">
+                                        {formatGuestDate(entry.createdAt)}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <Heart
+                                    size={12}
+                                    className="mt-1 shrink-0 text-[#e0aabb] opacity-0 transition group-hover:opacity-100"
+                                    fill="currentColor"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="mt-5">
+                              <p className="font-serif text-[15px] leading-7 text-[#87606f]">
+                                “{entry.message}”
+                              </p>
+                            </div>
+
+                            <div className="mt-5 flex items-center justify-between">
+                              <div className="flex gap-1 text-[#e2b2c1]">
+                                <Heart size={9} fill="currentColor" />
+                                <Heart size={9} fill="currentColor" />
+                                <Heart size={9} fill="currentColor" />
+                              </div>
+
+                              <span className="text-[9px] uppercase tracking-[0.2em] text-[#c2a1ac]">
+                                With love
+                              </span>
+                            </div>
+                          </motion.article>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* VIEW MORE */}
+
+                    {guestEntries.length > 6 && (
+                      <div className="mt-6 text-center">
+                        <p className="text-xs text-[#b08b98]">
+                          Showing 6 of {guestEntries.length} little messages
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Reveal>
+              </div>
             </div>
           </section>
 
@@ -1561,7 +1867,7 @@ export default function Home() {
                           Sunday, November 22, 2026
                         </p>
 
-                        <p className="mt-1 text-xs text-[#a98592]">10:00 AM</p>
+                        <p className="mt-1 text-xs text-[#a98592]">10:30 AM</p>
                       </div>
 
                       <button
@@ -1988,6 +2294,890 @@ export default function Home() {
         )}
       </AnimatePresence>
     </main>
+  );
+}
+
+/* =========================================================
+   PHOTO BOOTH
+========================================================= */
+
+function PhotoBooth() {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState(
+    PHOTO_TEMPLATES[0].id
+  );
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
+  const [finalPhoto, setFinalPhoto] = useState<string | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  const selectedTemplate =
+    PHOTO_TEMPLATES.find((template) => template.id === selectedTemplateId) ??
+    PHOTO_TEMPLATES[0];
+
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    setIsCameraOpen(false);
+  };
+
+  const startCamera = async () => {
+    setCameraError("");
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError("Camera access is not supported by this browser.");
+      return;
+    }
+
+    try {
+      stopCamera();
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "user" },
+          width: { ideal: 1280 },
+          height: { ideal: 1280 },
+        },
+        audio: false,
+      });
+
+      streamRef.current = stream;
+      setIsCameraOpen(true);
+
+      requestAnimationFrame(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => undefined);
+        }
+      });
+    } catch (error) {
+      console.error("CAMERA ERROR:", error);
+      setCameraError(
+        "Please allow camera access in your browser to use the photo booth."
+      );
+      setIsCameraOpen(false);
+    }
+  };
+
+  const selectTemplate = (template: PhotoTemplate) => {
+    stopCamera();
+    setSelectedTemplateId(template.id);
+    setCapturedPhotos([]);
+    setFinalPhoto(null);
+    setCameraError("");
+  };
+
+  const loadImage = (src: string) =>
+    new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = src;
+    });
+
+  const drawCover = (
+    context: CanvasRenderingContext2D,
+    image: CanvasImageSource,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius = 0
+  ) => {
+    const source = image as HTMLImageElement;
+    const sourceWidth = source.naturalWidth || source.width || 1;
+    const sourceHeight = source.naturalHeight || source.height || 1;
+    const sourceRatio = sourceWidth / sourceHeight;
+    const targetRatio = width / height;
+
+    let sx = 0;
+    let sy = 0;
+    let sw = sourceWidth;
+    let sh = sourceHeight;
+
+    if (sourceRatio > targetRatio) {
+      sw = sourceHeight * targetRatio;
+      sx = (sourceWidth - sw) / 2;
+    } else {
+      sh = sourceWidth / targetRatio;
+      sy = (sourceHeight - sh) / 2;
+    }
+
+    context.save();
+    context.beginPath();
+    if (radius > 0) {
+      context.roundRect(x, y, width, height, radius);
+    } else {
+      context.rect(x, y, width, height);
+    }
+    context.clip();
+    context.drawImage(image, sx, sy, sw, sh, x, y, width, height);
+    context.restore();
+  };
+
+  const drawSlot = (
+    context: CanvasRenderingContext2D,
+    image: HTMLImageElement,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius = 24
+  ) => {
+    context.save();
+    context.shadowColor = "rgba(120,70,90,.16)";
+    context.shadowBlur = 24;
+    context.fillStyle = "#ffffff";
+    context.fillRect(x - 10, y - 10, width + 20, height + 20);
+    context.restore();
+
+    drawCover(context, image, x, y, width, height, radius);
+
+    context.save();
+    context.strokeStyle = selectedTemplate.border;
+    context.lineWidth = 7;
+    context.beginPath();
+    context.roundRect(x, y, width, height, radius);
+    context.stroke();
+    context.restore();
+  };
+
+  const drawText = (
+    context: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number,
+    font: string,
+    color = selectedTemplate.accent
+  ) => {
+    context.fillStyle = color;
+    context.font = font;
+    context.textAlign = "center";
+    context.fillText(text, x, y);
+  };
+
+  const drawElioraSticker = (
+    context: CanvasRenderingContext2D,
+    image: HTMLImageElement,
+    x: number,
+    y: number,
+    size: number
+  ) => {
+    context.save();
+    context.beginPath();
+    context.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+    context.clip();
+    context.drawImage(image, x, y, size, size);
+    context.restore();
+
+    context.strokeStyle = "#ffffff";
+    context.lineWidth = 8;
+    context.beginPath();
+    context.arc(x + size / 2, y + size / 2, size / 2 + 2, 0, Math.PI * 2);
+    context.stroke();
+  };
+
+  const composePhotos = async (photos: string[]) => {
+    const canvas = canvasRef.current;
+    if (!canvas || photos.length < selectedTemplate.slots) return;
+
+    setIsComposing(true);
+
+    try {
+      const width = 1080;
+      const height = 1350;
+      canvas.width = width;
+      canvas.height = height;
+
+      const context = canvas.getContext("2d");
+      if (!context) return;
+
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
+
+      context.fillStyle = selectedTemplate.background;
+      context.fillRect(0, 0, width, height);
+
+      const images = await Promise.all(
+        photos.slice(0, selectedTemplate.slots).map(loadImage)
+      );
+      const elioraImage = await loadImage("/eliora-faye.jpeg");
+
+      if (selectedTemplate.style === "single") {
+        drawText(context, "A LITTLE BLESSING", width / 2, 75, "600 22px Arial");
+        drawSlot(context, images[0], 70, 110, 940, 900, 42);
+        drawText(
+          context,
+          "Eliora Faye",
+          width / 2,
+          1095,
+          "600 48px Georgia, serif"
+        );
+        drawText(
+          context,
+          "Holy Baptism • November 22, 2026",
+          width / 2,
+          1140,
+          "22px Arial"
+        );
+        drawText(
+          context,
+          "A day of love, faith & blessings",
+          width / 2,
+          1205,
+          "italic 25px Georgia, serif"
+        );
+        drawElioraSticker(context, elioraImage, 905, 1180, 105);
+      }
+
+      if (selectedTemplate.style === "duo") {
+        drawText(
+          context,
+          "TWO LITTLE MOMENTS",
+          width / 2,
+          68,
+          "600 21px Arial"
+        );
+        drawSlot(context, images[0], 55, 105, 470, 920, 34);
+        drawSlot(context, images[1], 555, 105, 470, 920, 34);
+        drawText(
+          context,
+          "Eliora Faye",
+          width / 2,
+          1095,
+          "600 46px Georgia, serif"
+        );
+        drawText(
+          context,
+          "Loved • Blessed • Cherished",
+          width / 2,
+          1140,
+          "22px Arial"
+        );
+        drawText(context, "November 22, 2026", width / 2, 1195, "20px Arial");
+        drawElioraSticker(context, elioraImage, 65, 1160, 110);
+      }
+
+      if (selectedTemplate.style === "trio") {
+        drawText(
+          context,
+          "FAITH • LOVE • JOY",
+          width / 2,
+          65,
+          "600 21px Arial"
+        );
+        drawSlot(context, images[0], 55, 105, 600, 810, 38);
+        drawSlot(context, images[1], 685, 105, 340, 385, 28);
+        drawSlot(context, images[2], 685, 530, 340, 385, 28);
+        drawText(context, "Eliora Faye", 540, 1015, "600 46px Georgia, serif");
+        drawText(
+          context,
+          "A beautiful little blessing",
+          540,
+          1065,
+          "22px Arial"
+        );
+        drawText(context, "Holy Baptism • 2026", 540, 1110, "20px Arial");
+        drawElioraSticker(context, elioraImage, 895, 1150, 115);
+        drawText(context, "♡", 540, 1230, "38px serif");
+      }
+
+      if (selectedTemplate.style === "grid") {
+        drawText(
+          context,
+          "ELIORA FAYE ♡",
+          width / 2,
+          68,
+          "600 24px Georgia, serif"
+        );
+        drawSlot(context, images[0], 55, 105, 470, 500, 30);
+        drawSlot(context, images[1], 555, 105, 470, 500, 30);
+        drawSlot(context, images[2], 55, 645, 470, 500, 30);
+        drawSlot(context, images[3], 555, 645, 470, 500, 30);
+        drawText(
+          context,
+          "Sweet • Loved • Blessed",
+          width / 2,
+          1225,
+          "20px Arial"
+        );
+        drawElioraSticker(context, elioraImage, 35, 15, 80);
+      }
+
+      if (selectedTemplate.style === "masonry") {
+        drawText(context, "BLOOM MASONRY", width / 2, 65, "600 21px Arial");
+        drawSlot(context, images[0], 55, 105, 450, 690, 34);
+        drawSlot(context, images[1], 535, 105, 490, 330, 30);
+        drawSlot(context, images[2], 535, 470, 490, 325, 30);
+        drawSlot(context, images[3], 55, 830, 970, 315, 30);
+        drawText(
+          context,
+          "Loved beyond measure",
+          width / 2,
+          1210,
+          "italic 28px Georgia, serif"
+        );
+        drawText(context, "November 22, 2026", width / 2, 1250, "18px Arial");
+        drawElioraSticker(context, elioraImage, 925, 1180, 85);
+      }
+
+      if (selectedTemplate.style === "portrait") {
+        context.strokeStyle = selectedTemplate.border;
+        context.lineWidth = 16;
+        context.strokeRect(32, 32, width - 64, height - 64);
+        context.strokeStyle = "#efd5de";
+        context.lineWidth = 3;
+        context.strokeRect(52, 52, width - 104, height - 104);
+
+        // A real Eliora portrait becomes part of the border instead of a random stock image.
+        drawElioraSticker(context, elioraImage, 60, 60, 135);
+        drawElioraSticker(context, elioraImage, 885, 60, 135);
+        drawElioraSticker(context, elioraImage, 60, 1155, 135);
+        drawElioraSticker(context, elioraImage, 885, 1155, 135);
+
+        drawText(
+          context,
+          "THE HOLY BAPTISM OF",
+          width / 2,
+          115,
+          "600 20px Arial"
+        );
+        drawText(
+          context,
+          "ELIORA FAYE",
+          width / 2,
+          165,
+          "600 42px Georgia, serif"
+        );
+        drawSlot(context, images[0], 125, 220, 830, 790, 180);
+        drawText(context, "November 22, 2026", width / 2, 1080, "22px Arial");
+        drawText(
+          context,
+          "A little memory to keep forever ♡",
+          width / 2,
+          1140,
+          "italic 25px Georgia, serif"
+        );
+        drawText(
+          context,
+          "10:30 AM • Baptism Celebration",
+          width / 2,
+          1215,
+          "18px Arial"
+        );
+      }
+
+      setFinalPhoto(canvas.toDataURL("image/jpeg", 0.94));
+      stopCamera();
+    } catch (error) {
+      console.error("COMPOSE PHOTO ERROR:", error);
+      setCameraError("We couldn't create the keepsake. Please try again.");
+    } finally {
+      setIsComposing(false);
+    }
+  };
+
+  const capturePhoto = async () => {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2 || isCapturing || isComposing) return;
+
+    setIsCapturing(true);
+    setCountdown(3);
+
+    try {
+      for (let value = 3; value >= 1; value -= 1) {
+        setCountdown(value);
+        await new Promise((resolve) => setTimeout(resolve, 450));
+      }
+
+      setCountdown(null);
+
+      const rawCanvas = document.createElement("canvas");
+      rawCanvas.width = video.videoWidth || 1280;
+      rawCanvas.height = video.videoHeight || 720;
+
+      const context = rawCanvas.getContext("2d");
+      if (!context) return;
+
+      context.translate(rawCanvas.width, 0);
+      context.scale(-1, 1);
+      context.drawImage(video, 0, 0, rawCanvas.width, rawCanvas.height);
+
+      const rawPhoto = rawCanvas.toDataURL("image/jpeg", 0.92);
+      const nextPhotos = [...capturedPhotos, rawPhoto].slice(
+        0,
+        selectedTemplate.slots
+      );
+      setCapturedPhotos(nextPhotos);
+
+      if (nextPhotos.length === selectedTemplate.slots) {
+        await composePhotos(nextPhotos);
+      }
+    } catch (error) {
+      console.error("CAPTURE PHOTO ERROR:", error);
+      setCameraError("Something went wrong while taking the photo.");
+      setCountdown(null);
+    } finally {
+      setIsCapturing(false);
+    }
+  };
+
+  const beginBooth = () => {
+    setFinalPhoto(null);
+    setCapturedPhotos([]);
+    void startCamera();
+  };
+
+  const retakeLast = () => {
+    setFinalPhoto(null);
+    setCapturedPhotos((photos) => photos.slice(0, -1));
+    void startCamera();
+  };
+
+  const clearPhotos = () => {
+    stopCamera();
+    setFinalPhoto(null);
+    setCapturedPhotos([]);
+    setCountdown(null);
+  };
+
+  const savePhoto = () => {
+    if (!finalPhoto) return;
+
+    const link = document.createElement("a");
+    link.href = finalPhoto;
+    link.download = `eliora-faye-${selectedTemplate.id}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  const previewImage = "/eliora-faye.jpeg";
+
+  return (
+    <section
+      id="photo-booth"
+      className="relative overflow-hidden bg-[#fff0f4] px-6 py-28"
+    >
+      <FloatingDecor />
+
+      <Reveal>
+        <SectionHeading
+          eyebrow="Pick a template first"
+          title="Eliora's Photo Booth"
+          description="Choose a layout, take the required number of photos, and the booth will arrange everything for you automatically."
+        />
+      </Reveal>
+
+      <div className="relative z-10 mx-auto mt-14 max-w-6xl">
+        <div className="grid items-start gap-8 lg:grid-cols-[1fr_0.95fr]">
+          <Reveal>
+            <div className="rounded-[38px] border border-[#efd3dc] bg-white p-4 shadow-2xl shadow-[#c78da0]/10 md:p-6">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-[30px] bg-[#f8e2e9]">
+                {finalPhoto ? (
+                  <img
+                    src={finalPhoto}
+                    alt="Your Eliora Faye photo booth keepsake"
+                    className="h-full w-full object-contain bg-[#fff8fa]"
+                  />
+                ) : isCameraOpen ? (
+                  <>
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="h-full w-full scale-x-[-1] object-cover"
+                    />
+
+                    <div className="pointer-events-none absolute inset-0">
+                      <div className="absolute inset-3 rounded-[26px] border-[5px] border-white/70" />
+
+                      <div className="absolute left-5 top-5 rounded-full bg-white/85 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#9a6076] shadow-md backdrop-blur">
+                        Photo{" "}
+                        {Math.min(
+                          capturedPhotos.length + 1,
+                          selectedTemplate.slots
+                        )}{" "}
+                        of {selectedTemplate.slots}
+                      </div>
+
+                      {countdown !== null && (
+                        <motion.div
+                          key={countdown}
+                          initial={{ opacity: 0, scale: 1.5 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="absolute inset-0 flex items-center justify-center"
+                        >
+                          <span className="font-serif text-8xl font-bold text-white drop-shadow-2xl">
+                            {countdown}
+                          </span>
+                        </motion.div>
+                      )}
+
+                      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-white/90 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8f5269] shadow-md">
+                        {selectedTemplate.message}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center px-8 text-center">
+                    <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white shadow-xl">
+                      <Camera size={32} className="text-[#b85c7b]" />
+                      <span className="absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#b85c7b] text-sm text-white">
+                        {selectedTemplate.slots}
+                      </span>
+                    </div>
+
+                    <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.3em] text-[#b9788d]">
+                      {selectedTemplate.subtitle}
+                    </p>
+                    <h3 className="mt-2 font-serif text-2xl text-[#8f5269]">
+                      {selectedTemplate.name}
+                    </h3>
+                    <p className="mt-3 max-w-sm text-sm leading-7 text-[#a17e8b]">
+                      {selectedTemplate.slots === 1
+                        ? "One beautiful portrait, framed like a keepsake."
+                        : `Take ${selectedTemplate.slots} photos and we'll build the collage automatically.`}
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={beginBooth}
+                      className="mt-6 flex items-center gap-2 rounded-full bg-[#b85c7b] px-7 py-3 text-sm font-medium text-white shadow-lg shadow-[#b85c7b]/20 transition hover:-translate-y-0.5"
+                    >
+                      <Camera size={17} />
+                      Start Photo Booth
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <canvas ref={canvasRef} className="hidden" />
+
+              {capturedPhotos.length > 0 && !finalPhoto && (
+                <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-1">
+                  {capturedPhotos.map((photo, index) => (
+                    <div
+                      key={`${photo.slice(0, 20)}-${index}`}
+                      className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 border-[#e8b6c5] bg-white p-0.5"
+                    >
+                      <img
+                        src={photo}
+                        alt={`Captured photo ${index + 1}`}
+                        className="h-full w-full rounded-lg object-cover"
+                      />
+                      <span className="absolute bottom-1 left-1 rounded-full bg-white/90 px-1.5 text-[9px] font-bold text-[#9a6076]">
+                        {index + 1}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-5 flex flex-wrap justify-center gap-3">
+                {finalPhoto ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={retakeLast}
+                      className="flex items-center gap-2 rounded-full border border-[#e6c4cf] bg-white px-5 py-3 text-sm text-[#a56d7f] transition hover:bg-[#fff6f8]"
+                    >
+                      <RotateCcw size={16} />
+                      Retake Last
+                    </button>
+                    <button
+                      type="button"
+                      onClick={savePhoto}
+                      className="flex items-center gap-2 rounded-full bg-[#b85c7b] px-6 py-3 text-sm font-medium text-white shadow-lg shadow-[#b85c7b]/20 transition hover:-translate-y-0.5"
+                    >
+                      <Download size={16} />
+                      Save Keepsake
+                    </button>
+                  </>
+                ) : isCameraOpen ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={capturePhoto}
+                      disabled={isCapturing || isComposing}
+                      className="flex items-center gap-2 rounded-full bg-[#b85c7b] px-7 py-3 text-sm font-medium text-white shadow-lg shadow-[#b85c7b]/20 transition hover:-translate-y-0.5 disabled:opacity-50"
+                    >
+                      <Camera size={17} />
+                      {isCapturing
+                        ? "Get Ready..."
+                        : isComposing
+                        ? "Creating..."
+                        : `Take Photo ${capturedPhotos.length + 1}`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearPhotos}
+                      className="flex items-center gap-2 rounded-full border border-[#e6c4cf] bg-white px-5 py-3 text-sm text-[#a56d7f]"
+                    >
+                      <X size={16} />
+                      Start Over
+                    </button>
+                  </>
+                ) : null}
+              </div>
+
+              {cameraError && (
+                <p className="mt-4 text-center text-xs leading-5 text-[#b85c7b]">
+                  {cameraError}
+                </p>
+              )}
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.1}>
+            <div className="rounded-[38px] border border-[#efd3dc] bg-white p-6 shadow-xl shadow-[#c78da0]/10 md:p-7">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#fff0f4] text-[#b85c7b]">
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-[#b9788d]">
+                    01 • Choose layout
+                  </p>
+                  <h3 className="mt-1 font-serif text-2xl text-[#8f5269]">
+                    Different designs, different photo counts
+                  </h3>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2">
+                {PHOTO_TEMPLATES.map((template) => {
+                  const active = selectedTemplateId === template.id;
+
+                  return (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => selectTemplate(template)}
+                      className={`group rounded-[22px] border-2 p-2 text-left transition ${
+                        active
+                          ? "border-[#b85c7b] bg-[#fff5f8] shadow-lg"
+                          : "border-[#f0dce2] bg-white hover:-translate-y-1 hover:border-[#e0b4c2] hover:shadow-md"
+                      }`}
+                    >
+                      <TemplatePreview
+                        template={template}
+                        image={previewImage}
+                      />
+
+                      <div className="mt-2 flex items-start justify-between gap-2 px-1">
+                        <div>
+                          <p className="text-sm font-semibold text-[#8f5269]">
+                            {template.name}
+                          </p>
+                          <p className="mt-0.5 text-[10px] uppercase tracking-[0.12em] text-[#b08a98]">
+                            {template.subtitle}
+                          </p>
+                        </div>
+                        {active && (
+                          <CheckCircle2
+                            size={16}
+                            className="mt-1 shrink-0 text-[#b85c7b]"
+                          />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-6 rounded-[24px] bg-[#fff6f8] p-5">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-full bg-white p-2 text-[#b85c7b] shadow-sm">
+                    <Heart size={15} fill="currentColor" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#9a6076]">
+                      {selectedTemplate.name} • {selectedTemplate.slots}{" "}
+                      {selectedTemplate.slots === 1 ? "photo" : "photos"}
+                    </p>
+                    <p className="mt-1 text-xs leading-6 text-[#a17e8b]">
+                      The camera photos are the main photos in the template.
+                      Eliora's real photo is only used as a decorative
+                      sticker/border where the design calls for it.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TemplatePreview({
+  template,
+  image,
+}: {
+  template: PhotoTemplate;
+  image: string;
+}) {
+  const base = "absolute overflow-hidden rounded-[8px] border";
+
+  return (
+    <div
+      className="relative aspect-[4/5] overflow-hidden rounded-[16px]"
+      style={{ background: template.background, borderColor: template.border }}
+    >
+      {template.style === "single" && (
+        <div
+          className={`${base} inset-[13%_9%_19%]`}
+          style={{ borderColor: template.border }}
+        >
+          <img src={image} alt="" className="h-full w-full object-cover" />
+          <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-white/90 px-2 py-0.5 text-[6px] font-bold text-[#a45d77]">
+            ELIORA FAYE
+          </span>
+        </div>
+      )}
+
+      {template.style === "duo" && (
+        <>
+          <img
+            src={image}
+            alt=""
+            className={`${base} left-[7%] top-[12%] h-[72%] w-[41%] object-cover`}
+            style={{ borderColor: template.border }}
+          />
+          <img
+            src={image}
+            alt=""
+            className={`${base} right-[7%] top-[12%] h-[72%] w-[41%] object-cover`}
+            style={{ borderColor: template.border }}
+          />
+          <span className="absolute bottom-[5%] left-1/2 -translate-x-1/2 font-serif text-[9px] text-[#9b6176]">
+            Two little moments
+          </span>
+        </>
+      )}
+
+      {template.style === "trio" && (
+        <>
+          <img
+            src={image}
+            alt=""
+            className={`${base} left-[7%] top-[12%] h-[62%] w-[55%] object-cover`}
+            style={{ borderColor: template.border }}
+          />
+          <img
+            src={image}
+            alt=""
+            className={`${base} right-[7%] top-[12%] h-[29%] w-[30%] object-cover`}
+            style={{ borderColor: template.border }}
+          />
+          <img
+            src={image}
+            alt=""
+            className={`${base} right-[7%] bottom-[18%] h-[29%] w-[30%] object-cover`}
+            style={{ borderColor: template.border }}
+          />
+          <span className="absolute bottom-[6%] left-[10%] text-[8px] font-semibold text-[#a15e77]">
+            FAITH • LOVE • JOY
+          </span>
+        </>
+      )}
+
+      {template.style === "grid" && (
+        <div className="absolute inset-[8%] grid grid-cols-2 gap-2">
+          {[0, 1, 2, 3].map((item) => (
+            <img
+              key={item}
+              src={image}
+              alt=""
+              className="h-full w-full rounded-[8px] object-cover"
+              style={{ border: `2px solid ${template.border}` }}
+            />
+          ))}
+          <span className="absolute bottom-[-7%] left-1/2 -translate-x-1/2 whitespace-nowrap font-serif text-[9px] text-[#c05c83]">
+            Eliora Faye ♡
+          </span>
+        </div>
+      )}
+
+      {template.style === "masonry" && (
+        <>
+          <img
+            src={image}
+            alt=""
+            className={`${base} left-[7%] top-[10%] h-[56%] w-[41%] object-cover`}
+            style={{ borderColor: template.border }}
+          />
+          <img
+            src={image}
+            alt=""
+            className={`${base} right-[7%] top-[10%] h-[28%] w-[45%] object-cover`}
+            style={{ borderColor: template.border }}
+          />
+          <img
+            src={image}
+            alt=""
+            className={`${base} right-[7%] top-[40%] h-[26%] w-[45%] object-cover`}
+            style={{ borderColor: template.border }}
+          />
+          <img
+            src={image}
+            alt=""
+            className={`${base} bottom-[10%] left-[7%] h-[22%] w-[86%] object-cover`}
+            style={{ borderColor: template.border }}
+          />
+          <span className="absolute bottom-[3%] left-1/2 -translate-x-1/2 text-[7px] font-semibold text-[#a86b7e]">
+            BLOOM MASONRY
+          </span>
+        </>
+      )}
+
+      {template.style === "portrait" && (
+        <>
+          <img
+            src={image}
+            alt=""
+            className="absolute left-[15%] top-[20%] h-[62%] w-[70%] rounded-[45%] object-cover"
+            style={{ border: `5px solid ${template.border}` }}
+          />
+          {[
+            "left-2 top-2",
+            "right-2 top-2",
+            "left-2 bottom-2",
+            "right-2 bottom-2",
+          ].map((position) => (
+            <img
+              key={position}
+              src={image}
+              alt=""
+              className={`absolute ${position} h-10 w-10 rounded-full border-2 border-white object-cover shadow`}
+            />
+          ))}
+          <span className="absolute left-1/2 bottom-[5%] -translate-x-1/2 whitespace-nowrap text-[7px] font-bold tracking-[0.15em] text-[#9b5d73]">
+            HOLY BAPTISM • ELIORA FAYE
+          </span>
+        </>
+      )}
+    </div>
   );
 }
 
