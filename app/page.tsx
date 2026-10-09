@@ -3006,7 +3006,7 @@ function PhotoBooth() {
   return (
     <section
       id="photo-booth"
-      className="relative overflow-hidden bg-[#fff0f4] px-6 py-28"
+      className="relative overflow-hidden bg-[#fff0f4] px-4 py-14 sm:px-6 sm:py-20 lg:py-28"
     >
       <FloatingDecor />
 
@@ -3018,13 +3018,15 @@ function PhotoBooth() {
         />
       </Reveal>
 
-      <div className="relative z-10 mx-auto mt-14 max-w-6xl">
-        <div className="grid items-start gap-8 lg:grid-cols-[1fr_0.95fr]">
+      <div className="relative z-10 mx-auto mt-8 w-full max-w-6xl sm:mt-10 lg:mt-14">
+        <div className="grid min-w-0 grid-cols-1 items-start gap-5 sm:gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:gap-8">
           <Reveal>
-            <div className="rounded-[38px] border border-[#efd3dc] bg-white p-4 shadow-2xl shadow-[#c78da0]/10 md:p-6">
+            <div className="min-w-0 rounded-[26px] border border-[#efd3dc] bg-white p-3 shadow-2xl shadow-[#c78da0]/10 sm:rounded-[32px] sm:p-4 md:p-6">
               <div
-                className={`relative overflow-hidden rounded-[30px] bg-[#f8e2e9] ${
-                  orientation === "portrait" ? "aspect-[4/5]" : "aspect-[3/2]"
+                className={`relative w-full overflow-hidden rounded-[22px] bg-[#f8e2e9] sm:rounded-[26px] ${
+                  orientation === "portrait"
+                    ? "aspect-[4/5] max-h-[760px]"
+                    : "aspect-[3/2] max-h-[560px]"
                 }`}
               >
                 {finalPhoto ? (
@@ -3074,21 +3076,24 @@ function PhotoBooth() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-                    <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-white shadow-xl">
-                      <Camera size={32} className="text-[#b85c7b]" />
+                  <div className="absolute inset-0 flex h-full w-full flex-col items-center justify-center overflow-y-auto px-3 py-4 text-center sm:px-6 sm:py-6">
+                    <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-white shadow-xl sm:h-20 sm:w-20 md:h-24 md:w-24">
+                      <Camera
+                        size={26}
+                        className="text-[#b85c7b] sm:h-8 sm:w-8"
+                      />
                       <span className="absolute -right-1 -top-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#b85c7b] text-sm text-white">
                         {selectedTemplate.slots}
                       </span>
                     </div>
 
-                    <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.3em] text-[#b9788d]">
+                    <p className="mt-3 text-[9px] font-bold uppercase tracking-[0.2em] text-[#b9788d] sm:mt-5 sm:text-[10px] sm:tracking-[0.3em]">
                       {selectedTemplate.subtitle}
                     </p>
-                    <h3 className="mt-2 font-serif text-2xl text-[#8f5269]">
+                    <h3 className="mt-1 font-serif text-xl leading-tight text-[#8f5269] sm:mt-2 sm:text-2xl md:text-3xl">
                       {selectedTemplate.name}
                     </h3>
-                    <p className="mt-3 max-w-sm text-sm leading-7 text-[#a17e8b]">
+                    <p className="mt-2 max-w-sm text-xs leading-5 text-[#a17e8b] sm:mt-3 sm:text-sm sm:leading-7">
                       {selectedTemplate.slots === 1
                         ? "One beautiful portrait, framed like a keepsake."
                         : `Take ${selectedTemplate.slots} photos and we'll build the collage automatically.`}
@@ -3097,7 +3102,7 @@ function PhotoBooth() {
                     <button
                       type="button"
                       onClick={beginBooth}
-                      className="mt-6 flex items-center gap-2 rounded-full bg-[#b85c7b] px-7 py-3 text-sm font-medium text-white shadow-lg shadow-[#b85c7b]/20 transition hover:-translate-y-0.5"
+                      className="mt-3 flex max-w-full items-center justify-center gap-2 rounded-full bg-[#b85c7b] px-5 py-2.5 text-xs font-medium text-white shadow-lg shadow-[#b85c7b]/20 transition hover:-translate-y-0.5 sm:mt-6 sm:px-7 sm:py-3 sm:text-sm"
                     >
                       <Camera size={17} />
                       Start Photo Booth
@@ -3128,7 +3133,7 @@ function PhotoBooth() {
                 </div>
               )}
 
-              <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <div className="mt-4 flex flex-wrap justify-center gap-2 sm:mt-5 sm:gap-3">
                 {finalPhoto ? (
                   <>
                     <button
@@ -3184,8 +3189,8 @@ function PhotoBooth() {
           </Reveal>
 
           <Reveal delay={0.1}>
-            <div className="rounded-[38px] border border-[#efd3dc] bg-white p-6 shadow-xl shadow-[#c78da0]/10 md:p-7">
-              <div className="flex items-center gap-3">
+            <div className="min-w-0 rounded-[26px] border border-[#efd3dc] bg-white p-4 shadow-xl shadow-[#c78da0]/10 sm:rounded-[32px] sm:p-5 md:p-7">
+              <div className="flex min-w-0 items-start gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#fff0f4] text-[#b85c7b]">
                   <Sparkles size={18} />
                 </div>
@@ -3193,13 +3198,13 @@ function PhotoBooth() {
                   <p className="text-[10px] uppercase tracking-[0.3em] text-[#b9788d]">
                     01 • Choose layout
                   </p>
-                  <h3 className="mt-1 font-serif text-2xl text-[#8f5269]">
+                  <h3 className="mt-1 break-words font-serif text-xl leading-tight text-[#8f5269] sm:text-2xl">
                     Different designs, different photo counts
                   </h3>
                 </div>
               </div>
 
-              <div className="mt-6 rounded-[24px] border border-[#f0dce2] bg-[#fffafc] p-4">
+              <div className="mt-5 min-w-0 rounded-[20px] border border-[#f0dce2] bg-[#fffafc] p-3 sm:mt-6 sm:rounded-[24px] sm:p-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#b9788d]">
                   01 • Choose orientation
                 </p>
@@ -3212,7 +3217,7 @@ function PhotoBooth() {
                       setCapturedPhotos([]);
                       stopCamera();
                     }}
-                    className={`flex items-center gap-3 rounded-2xl border-2 p-3 text-left transition ${
+                    className={`flex min-w-0 items-center gap-2 rounded-2xl border-2 p-2.5 text-left transition sm:gap-3 sm:p-3 ${
                       orientation === "portrait"
                         ? "border-[#b85c7b] bg-[#fff0f4]"
                         : "border-[#f0dce2] bg-white hover:border-[#e0b4c2]"
@@ -3222,7 +3227,7 @@ function PhotoBooth() {
                       <span className="h-7 w-5 rounded-sm bg-[#e7c2ce]" />
                     </span>
                     <span>
-                      <span className="block text-sm font-semibold text-[#8f5269]">
+                      <span className="block text-xs font-semibold text-[#8f5269] sm:text-sm">
                         Portrait
                       </span>
                       <span className="text-[10px] text-[#a17e8b]">
@@ -3244,7 +3249,7 @@ function PhotoBooth() {
                       setCapturedPhotos([]);
                       stopCamera();
                     }}
-                    className={`flex items-center gap-3 rounded-2xl border-2 p-3 text-left transition ${
+                    className={`flex min-w-0 items-center gap-2 rounded-2xl border-2 p-2.5 text-left transition sm:gap-3 sm:p-3 ${
                       orientation === "landscape"
                         ? "border-[#b85c7b] bg-[#fff0f4]"
                         : "border-[#f0dce2] bg-white hover:border-[#e0b4c2]"
@@ -3254,7 +3259,7 @@ function PhotoBooth() {
                       <span className="h-5 w-8 rounded-sm bg-[#e7c2ce]" />
                     </span>
                     <span>
-                      <span className="block text-sm font-semibold text-[#8f5269]">
+                      <span className="block text-xs font-semibold text-[#8f5269] sm:text-sm">
                         Landscape
                       </span>
                       <span className="text-[10px] text-[#a17e8b]">
