@@ -21,6 +21,9 @@ export const metadata: Metadata = {
     ],
     type: "website",
   },
+  other: {
+    "fb:app_id": "2174331380102780",
+  },
 };
 
 export default function RootLayout({
