@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "The Holy Baptism of Eliora Faye 💗",
   description:
     "A little blessing is on the way. Join us for the Holy Baptism of Eliora Faye De Guzman.",
-  facebook: { appId: "2174331380102780" },
+  // facebook: { appId: "2174331380102780" },
   openGraph: {
     title: "The Holy Baptism of Eliora Faye 💗",
     description: "You are invited to celebrate Eliora Faye's special day!",
