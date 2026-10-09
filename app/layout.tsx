@@ -6,7 +6,11 @@ export const metadata: Metadata = {
   title: "The Holy Baptism of Eliora Faye 💗",
   description:
     "A little blessing is on the way. Join us for the Holy Baptism of Eliora Faye De Guzman.",
-  facebook: { appId: "543301339468740" },
+
+  facebook: {
+    appId: "543301339468740",
+  },
+
   openGraph: {
     title: "The Holy Baptism of Eliora Faye 💗",
     description: "You are invited to celebrate Eliora Faye's special day!",
@@ -14,13 +18,20 @@ export const metadata: Metadata = {
     siteName: "Eliora Faye Baptism Invitation",
     images: [
       {
-        url: "/opengraph-image.png",
+        url: "/og-baptism.jpg",
         width: 1200,
         height: 630,
         alt: "Pink envelope baptism invitation for Eliora Faye",
       },
     ],
     type: "website",
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "The Holy Baptism of Eliora Faye 💗",
+    description: "You are invited to celebrate Eliora Faye's special day!",
+    images: ["/og-baptism.jpg"],
   },
 };
 
@@ -31,8 +42,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head></head>
-      <body>{children}</body>
+      {" "}
+      <body>{children}</body>{" "}
     </html>
   );
 }
