@@ -95,6 +95,18 @@ type ReservationErrors = {
   message: string;
 };
 
+type ReservationEntry = {
+  id: string;
+  name: string;
+  attendance: "yes" | "no";
+  guests?: number;
+  message?: string;
+  createdAt?: {
+    seconds?: number;
+    nanoseconds?: number;
+  } | null;
+};
+
 type GalleryImage = {
   src: string;
   title: string;
@@ -110,6 +122,7 @@ type PhotoTemplate = {
   border: string;
   message: string;
   style: "single" | "duo" | "trio" | "grid" | "masonry" | "portrait";
+  theme: "eucalyptus" | "blush";
 };
 
 /* =========================================================
@@ -165,61 +178,67 @@ const PHOTO_TEMPLATES: PhotoTemplate[] = [
     border: "#e8b5c5",
     message: "A little blessing",
     style: "single",
+    theme: "eucalyptus",
   },
   {
     id: "sweet-duo",
     name: "Sweet Duo",
     subtitle: "2 photos",
     slots: 2,
-    accent: "#9b6176",
-    background: "#fffaf7",
-    border: "#dfc1ca",
+    accent: "#a45d77",
+    background: "#fff6f8",
+    border: "#e8b6c5",
     message: "Two little moments",
     style: "duo",
+    theme: "blush",
   },
   {
     id: "trinity",
     name: "Trinity",
     subtitle: "3 photos",
     slots: 3,
-    accent: "#a15e77",
-    background: "#fff4f7",
+    accent: "#a45d77",
+    background: "#fff0f4",
     border: "#e8b6c5",
     message: "Faith • Love • Joy",
     style: "trio",
+    theme: "eucalyptus",
   },
   {
     id: "kikay-four",
     name: "Kikay Four",
     subtitle: "4 photos",
     slots: 4,
-    accent: "#c05c83",
+    accent: "#b85c7b",
     background: "#ffeaf2",
-    border: "#f0aec6",
+    border: "#e7a8bb",
     message: "Eliora Faye ♡",
     style: "grid",
+    theme: "blush",
   },
   {
     id: "bloom-masonry",
     name: "Bloom Masonry",
     subtitle: "4 photos",
     slots: 4,
-    accent: "#a86b7e",
-    background: "#fff8f2",
-    border: "#ddc1b0",
+    accent: "#a45d77",
+    background: "#fff6f8",
+    border: "#e8b6c5",
     message: "Loved beyond measure",
     style: "masonry",
+    theme: "eucalyptus",
   },
   {
     id: "eliora-keepsake",
     name: "Eliora Keepsake",
     subtitle: "1 photo",
     slots: 1,
-    accent: "#9b5d73",
+    accent: "#8f5269",
     background: "#fff6f8",
     border: "#dcb1bf",
     message: "November 22, 2026",
     style: "portrait",
+    theme: "blush",
   },
 ];
 
@@ -301,6 +320,8 @@ export default function Home() {
   const [guestMessage, setGuestMessage] = useState("");
 
   const [guestEntries, setGuestEntries] = useState<GuestEntry[]>([]);
+  const [guestNotesPage, setGuestNotesPage] = useState(1);
+  const GUEST_NOTES_PER_PAGE = 6;
 
   const [isSubmittingGuestbook, setIsSubmittingGuestbook] = useState(false);
 
@@ -337,6 +358,10 @@ export default function Home() {
   const [reservationSuccess, setReservationSuccess] = useState(false);
 
   const [reservationSubmitError, setReservationSubmitError] = useState("");
+  const [reservationEntries, setReservationEntries] = useState<
+    ReservationEntry[]
+  >([]);
+  const [reservationListError, setReservationListError] = useState("");
 
   /* -------------------------------------------------------
      SCROLL
@@ -402,6 +427,65 @@ export default function Home() {
 
     return () => unsubscribe();
   }, []);
+
+  /* =========================================================
+     FIREBASE RESERVATIONS — LIVE LIST AND COUNTS
+  ========================================================= */
+
+  useEffect(() => {
+    const reservationsRef = collection(db, "reservations");
+    const reservationsQuery = query(
+      reservationsRef,
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(
+      reservationsQuery,
+      (snapshot) => {
+        const entries: ReservationEntry[] = snapshot.docs.map((document) => {
+          const data = document.data();
+          return {
+            id: document.id,
+            name: typeof data.name === "string" ? data.name : "Guest",
+            attendance: data.attendance === "no" ? "no" : "yes",
+            guests: typeof data.guests === "number" ? data.guests : 0,
+            message: typeof data.message === "string" ? data.message : "",
+            createdAt: data.createdAt ?? null,
+          };
+        });
+
+        setReservationEntries(entries);
+        setReservationListError("");
+      },
+      (error) => {
+        console.error("REALTIME RESERVATIONS ERROR:", error);
+        setReservationListError(
+          "We couldn't load the reservation list. Check your Firestore read permissions."
+        );
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const reservationStats = useMemo(() => {
+    const attending = reservationEntries.filter(
+      (entry) => entry.attendance === "yes"
+    );
+    const notAttending = reservationEntries.filter(
+      (entry) => entry.attendance === "no"
+    );
+
+    return {
+      totalReservations: reservationEntries.length,
+      attendingReservations: attending.length,
+      notAttendingReservations: notAttending.length,
+      totalAttendingGuests: attending.reduce(
+        (total, entry) => total + Math.max(0, Number(entry.guests) || 0),
+        0
+      ),
+    };
+  }, [reservationEntries]);
 
   /* =========================================================
      MUSIC
@@ -711,10 +795,21 @@ export default function Home() {
      DISPLAYED GUESTS
   ========================================================= */
 
-  const displayedGuests = useMemo(
-    () => guestEntries.slice(0, 6),
-    [guestEntries]
+  const totalGuestNotesPages = Math.max(
+    1,
+    Math.ceil(guestEntries.length / GUEST_NOTES_PER_PAGE)
   );
+
+  const displayedGuests = useMemo(() => {
+    const start = (guestNotesPage - 1) * GUEST_NOTES_PER_PAGE;
+    return guestEntries.slice(start, start + GUEST_NOTES_PER_PAGE);
+  }, [guestEntries, guestNotesPage]);
+
+  useEffect(() => {
+    if (guestNotesPage > totalGuestNotesPages) {
+      setGuestNotesPage(totalGuestNotesPages);
+    }
+  }, [guestNotesPage, totalGuestNotesPages]);
 
   /* =========================================================
      UI
@@ -1779,13 +1874,70 @@ export default function Home() {
                       </div>
                     )}
 
-                    {/* VIEW MORE */}
+                    {/* LITTLE NOTES PAGINATION */}
 
-                    {guestEntries.length > 6 && (
-                      <div className="mt-6 text-center">
+                    {guestEntries.length > GUEST_NOTES_PER_PAGE && (
+                      <div className="mt-8 flex flex-col items-center gap-4">
                         <p className="text-xs text-[#b08b98]">
-                          Showing 6 of {guestEntries.length} little messages
+                          Showing{" "}
+                          {(guestNotesPage - 1) * GUEST_NOTES_PER_PAGE + 1}
+                          {"–"}
+                          {Math.min(
+                            guestNotesPage * GUEST_NOTES_PER_PAGE,
+                            guestEntries.length
+                          )}{" "}
+                          of {guestEntries.length} little notes
                         </p>
+
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setGuestNotesPage((page) => Math.max(1, page - 1))
+                            }
+                            disabled={guestNotesPage === 1}
+                            aria-label="Previous page of little notes"
+                            className="flex h-10 items-center gap-1 rounded-full border border-[#e8c5d1] bg-white px-4 text-sm text-[#a86d82] shadow-sm transition hover:bg-[#fff0f4] disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <ChevronLeft size={16} /> Previous
+                          </button>
+
+                          {Array.from(
+                            { length: totalGuestNotesPages },
+                            (_, index) => index + 1
+                          ).map((page) => (
+                            <button
+                              key={page}
+                              type="button"
+                              onClick={() => setGuestNotesPage(page)}
+                              aria-label={`Go to page ${page} of little notes`}
+                              aria-current={
+                                guestNotesPage === page ? "page" : undefined
+                              }
+                              className={`h-10 min-w-10 rounded-full border px-3 text-sm transition ${
+                                guestNotesPage === page
+                                  ? "border-[#c9899f] bg-[#c9899f] font-semibold text-white shadow-md shadow-[#d7a6b5]/25"
+                                  : "border-[#e8c5d1] bg-white text-[#a86d82] hover:bg-[#fff0f4]"
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          ))}
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setGuestNotesPage((page) =>
+                                Math.min(totalGuestNotesPages, page + 1)
+                              )
+                            }
+                            disabled={guestNotesPage === totalGuestNotesPages}
+                            aria-label="Next page of little notes"
+                            className="flex h-10 items-center gap-1 rounded-full border border-[#e8c5d1] bg-white px-4 text-sm text-[#a86d82] shadow-sm transition hover:bg-[#fff0f4] disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Next <ChevronRight size={16} />
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2139,57 +2291,224 @@ export default function Home() {
                 </AnimatePresence>
               </div>
             </Reveal>
+
+            {/* LIVE RESERVATION LIST */}
+            <Reveal delay={0.2}>
+              <div className="mx-auto mt-16 max-w-5xl">
+                <div className="mb-6 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#b9788d]">
+                    Our lovely guests
+                  </p>
+                  <h3 className="mt-3 font-serif text-3xl text-[#8f5269] md:text-4xl">
+                    Reservation list
+                  </h3>
+                  <p className="mt-3 text-sm text-[#a17e8b]">
+                    Thank you for letting us know. The list updates
+                    automatically when someone RSVPs.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  {[
+                    {
+                      label: "Total RSVPs",
+                      value: reservationStats.totalReservations,
+                      icon: <Users size={18} />,
+                    },
+                    {
+                      label: "Will attend",
+                      value: reservationStats.attendingReservations,
+                      icon: <CheckCircle2 size={18} />,
+                    },
+                    {
+                      label: "Guests expected",
+                      value: reservationStats.totalAttendingGuests,
+                      icon: <Heart size={18} />,
+                    },
+                    {
+                      label: "Can't attend",
+                      value: reservationStats.notAttendingReservations,
+                      icon: <MessageCircleHeart size={18} />,
+                    },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="rounded-2xl border border-white/80 bg-white/85 p-4 shadow-sm md:p-5"
+                    >
+                      <div className="flex items-center gap-2 text-[#b85c7b]">
+                        {stat.icon}
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#a17e8b]">
+                          {stat.label}
+                        </span>
+                      </div>
+                      <p className="mt-3 font-serif text-3xl text-[#8f5269]">
+                        {stat.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {reservationListError ? (
+                  <div className="mt-5 rounded-2xl border border-red-100 bg-white p-5 text-center text-sm text-red-600">
+                    {reservationListError}
+                  </div>
+                ) : reservationEntries.length === 0 ? (
+                  <div className="mt-5 rounded-3xl border border-white/80 bg-white/75 px-6 py-10 text-center shadow-sm">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#fff0f4] text-[#b85c7b]">
+                      <Heart size={23} />
+                    </div>
+                    <h4 className="mt-4 font-serif text-xl text-[#8f5269]">
+                      Be the first to RSVP
+                    </h4>
+                    <p className="mt-2 text-sm text-[#a17e8b]">
+                      Your name will appear here after your reservation is
+                      submitted.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-5 overflow-hidden rounded-3xl border border-white/80 bg-white/90 shadow-lg">
+                    <div className="flex items-center justify-between border-b border-[#f4e4e9] px-5 py-4 md:px-6">
+                      <div>
+                        <h4 className="font-serif text-xl text-[#8f5269]">
+                          Guest responses
+                        </h4>
+                        <p className="mt-1 text-xs text-[#b08b98]">
+                          {reservationEntries.length}{" "}
+                          {reservationEntries.length === 1
+                            ? "response"
+                            : "responses"}{" "}
+                          received
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-[#fff0f4] px-3 py-1 text-xs font-medium text-[#a65372]">
+                        Live updates
+                      </span>
+                    </div>
+                    <ul className="divide-y divide-[#f4e4e9]">
+                      {reservationEntries.map((entry) => (
+                        <li
+                          key={entry.id}
+                          className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between md:px-6"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fff0f4] text-[#b85c7b]">
+                              {entry.attendance === "yes" ? (
+                                <CheckCircle2 size={20} />
+                              ) : (
+                                <Heart size={19} />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-[#805065]">
+                                {entry.name}
+                              </p>
+                              <p className="mt-1 text-xs text-[#b08b98]">
+                                {entry.attendance === "yes"
+                                  ? `${Math.max(
+                                      1,
+                                      Number(entry.guests) || 1
+                                    )} ${
+                                      Number(entry.guests) === 1
+                                        ? "guest"
+                                        : "guests"
+                                    } attending`
+                                  : "Unable to attend"}
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`inline-flex w-fit items-center rounded-full px-3 py-1.5 text-xs font-semibold ${
+                              entry.attendance === "yes"
+                                ? "bg-[#fce5ec] text-[#a45d77]"
+                                : "bg-[#f7edf0] text-[#a17e8b]"
+                            }`}
+                          >
+                            {entry.attendance === "yes"
+                              ? "Attending"
+                              : "Declined"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </Reveal>
           </section>
 
           {/* FINAL THANK YOU */}
 
-          <section className="relative overflow-hidden bg-[#fff5f7] px-6 py-32">
+          <section className="relative overflow-hidden bg-[#fff5f7] px-6 py-24 md:py-32">
             <FloatingDecor />
+            <div className="pointer-events-none absolute left-1/2 top-12 h-72 w-72 -translate-x-1/2 rounded-full bg-[#f8dce5]/55 blur-3xl" />
 
             <Reveal>
-              <div className="mx-auto max-w-3xl text-center">
-                <motion.div
-                  animate={{
-                    y: [0, -6, 0],
-                    rotate: [0, 3, 0, -3, 0],
-                  }}
-                  transition={{
-                    duration: 5,
-                    repeat: Infinity,
-                  }}
-                  className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white text-[#b85c7b] shadow-lg"
-                >
-                  <Heart size={25} fill="currentColor" />
-                </motion.div>
+              <div className="relative mx-auto max-w-5xl overflow-hidden rounded-[36px] border border-[#efd2dc] bg-[#fffaf9]/95 p-6 shadow-[0_24px_70px_rgba(143,82,105,0.12)] md:p-12">
+                <div className="absolute inset-3 rounded-[28px] border border-[#efd3dc]/80" />
+                <div className="relative grid items-center gap-10 md:grid-cols-[0.9fr_1.1fr] md:gap-14">
+                  <div className="mx-auto w-full max-w-sm">
+                    <div className="relative rounded-t-[48%] rounded-b-[28px] border-[7px] border-white bg-[#f7e5e9] p-2 shadow-xl ring-1 ring-[#e8c7d2]">
+                      <img
+                        src="/eliora-faye.jpeg"
+                        alt="Eliora Faye"
+                        className="aspect-[4/5] w-full rounded-t-[45%] rounded-b-[20px] object-cover"
+                      />
+                      <div className="absolute -right-3 top-12 flex h-12 w-12 items-center justify-center rounded-full border border-white bg-[#fffaf8] text-[#b85c7b] shadow-md">
+                        <Heart size={20} fill="currentColor" />
+                      </div>
+                    </div>
+                    <p className="mt-4 text-center text-[10px] uppercase tracking-[0.28em] text-[#b08b98]">
+                      A little blessing, loved endlessly
+                    </p>
+                  </div>
 
-                <p className="mt-8 text-xs uppercase tracking-[0.4em] text-[#b9788d]">
-                  With all our love
-                </p>
+                  <div className="relative text-center md:text-left">
+                    <div className="mb-5 flex items-center justify-center gap-3 text-[#bd8799] md:justify-start">
+                      <span className="h-px w-10 bg-[#d9b1be]" />
+                      <span className="text-xs font-semibold uppercase tracking-[0.3em]">
+                        With all our love
+                      </span>
+                      <span className="h-px w-10 bg-[#d9b1be] md:hidden" />
+                    </div>
+                    <h2 className="font-serif text-5xl leading-tight text-[#8f5269] md:text-7xl">
+                      Thank you
+                    </h2>
+                    <p className="mt-5 font-serif text-2xl italic text-[#b85c7b]">
+                      for being part of her story.
+                    </p>
+                    <p className="mx-auto mt-5 max-w-lg text-sm leading-8 text-[#9c7483] md:mx-0">
+                      Thank you for sharing your prayers, kindness, and love
+                      with Eliora Faye. Your presence will make this beautiful
+                      milestone even more meaningful to our family.
+                    </p>
 
-                <h2 className="mt-5 font-serif text-5xl text-[#8f5269] md:text-6xl">
-                  Thank you
-                </h2>
+                    <div className="mt-8 inline-flex items-center gap-3 rounded-2xl border border-[#f0dce3] bg-white/80 px-5 py-4 text-left">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#fff0f4] text-[#b85c7b]">
+                        <CalendarDays size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-[#8f5269]">
+                          Sunday, November 22, 2026
+                        </p>
+                        <p className="mt-1 text-xs tracking-wide text-[#b08b98]">
+                          10:30 AM · A day of faith & blessings
+                        </p>
+                      </div>
+                    </div>
 
-                <p className="mx-auto mt-6 max-w-xl text-sm leading-8 text-[#9c7483]">
-                  Thank you for being part of Eliora Faye&apos;s special day.
-                  Your presence, prayers, and love mean so much to our family.
-                </p>
-
-                <div className="mx-auto mt-10 max-w-[220px] overflow-hidden rounded-[45%_45%_15%_15%] border-8 border-white shadow-xl">
-                  <img
-                    src="/eliora-faye.jpeg"
-                    alt="Eliora Faye"
-                    className="aspect-[4/5] w-full object-cover"
-                  />
+                    <p className="mt-8 font-serif text-3xl italic text-[#a65372]">
+                      Eliora Faye
+                    </p>
+                    <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.35em] text-[#b08b98]">
+                      De Guzman Family
+                    </p>
+                    <div className="mt-5 flex justify-center gap-2 text-[#d09aab] md:justify-start">
+                      <Heart size={13} fill="currentColor" />
+                      <Heart size={17} fill="currentColor" />
+                      <Heart size={13} fill="currentColor" />
+                    </div>
+                  </div>
                 </div>
-
-                <p className="mt-9 font-serif text-2xl text-[#b85c7b]">
-                  Eliora Faye
-                </p>
-
-                <p className="mt-2 text-xs uppercase tracking-[0.25em] text-[#b08b98]">
-                  & Family
-                </p>
               </div>
             </Reveal>
           </section>
@@ -2308,6 +2627,9 @@ function PhotoBooth() {
 
   const [selectedTemplateId, setSelectedTemplateId] = useState(
     PHOTO_TEMPLATES[0].id
+  );
+  const [orientation, setOrientation] = useState<"portrait" | "landscape">(
+    "portrait"
   );
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -2446,7 +2768,7 @@ function PhotoBooth() {
 
     context.save();
     context.strokeStyle = selectedTemplate.border;
-    context.lineWidth = 7;
+    context.lineWidth = 5;
     context.beginPath();
     context.roundRect(x, y, width, height, radius);
     context.stroke();
@@ -2467,25 +2789,112 @@ function PhotoBooth() {
     context.fillText(text, x, y);
   };
 
-  const drawElioraSticker = (
+  const drawBotanicalArtwork = (
     context: CanvasRenderingContext2D,
-    image: HTMLImageElement,
-    x: number,
-    y: number,
-    size: number
+    width: number,
+    height: number,
+    theme: "eucalyptus" | "blush"
   ) => {
     context.save();
-    context.beginPath();
-    context.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
-    context.clip();
-    context.drawImage(image, x, y, size, size);
-    context.restore();
+    const leaf = (
+      x: number,
+      y: number,
+      angle: number,
+      color: string,
+      scale = 1
+    ) => {
+      context.save();
+      context.translate(x, y);
+      context.rotate(angle);
+      context.strokeStyle = color;
+      context.lineWidth = 2.5 * scale;
+      context.beginPath();
+      context.moveTo(0, 0);
+      context.quadraticCurveTo(38 * scale, -20 * scale, 86 * scale, -2 * scale);
+      context.stroke();
+      for (let i = 1; i <= 4; i++) {
+        const px = i * 16 * scale;
+        context.fillStyle = color;
+        context.globalAlpha = 0.78;
+        context.beginPath();
+        context.ellipse(
+          px,
+          -10 * scale,
+          15 * scale,
+          6 * scale,
+          -0.55,
+          0,
+          Math.PI * 2
+        );
+        context.fill();
+        context.beginPath();
+        context.ellipse(
+          px + 6 * scale,
+          8 * scale,
+          14 * scale,
+          5.5 * scale,
+          0.55,
+          0,
+          Math.PI * 2
+        );
+        context.fill();
+      }
+      context.globalAlpha = 1;
+      context.restore();
+    };
+    const flower = (x: number, y: number, r: number, color: string) => {
+      context.save();
+      context.translate(x, y);
+      for (let i = 0; i < 7; i++) {
+        context.rotate((Math.PI * 2) / 7);
+        context.fillStyle = color;
+        context.globalAlpha = 0.78;
+        context.beginPath();
+        context.ellipse(0, -r * 0.65, r * 0.34, r * 0.68, 0, 0, Math.PI * 2);
+        context.fill();
+      }
+      context.globalAlpha = 1;
+      context.fillStyle = theme === "blush" ? "#c9899f" : "#d394a8";
+      context.beginPath();
+      context.arc(0, 0, r * 0.22, 0, Math.PI * 2);
+      context.fill();
+      context.restore();
+    };
 
-    context.strokeStyle = "#ffffff";
-    context.lineWidth = 8;
-    context.beginPath();
-    context.arc(x + size / 2, y + size / 2, size / 2 + 2, 0, Math.PI * 2);
-    context.stroke();
+    if (theme === "eucalyptus") {
+      // Airy botanical sprigs tucked into the corners, leaving photos and copy unobstructed.
+      leaf(34, 180, 0.45, "#e7a8bb", 1.05);
+      leaf(40, 250, 0.5, "#d98da7", 0.86);
+      leaf(width - 118, 175, 2.7, "#e7a8bb", 1.05);
+      leaf(width - 120, 245, 2.65, "#d98da7", 0.86);
+      leaf(35, height - 175, -0.5, "#e7a8bb", 0.95);
+      leaf(width - 120, height - 175, 3.65, "#d98da7", 0.95);
+      flower(78, 76, 13, "#f5dce4");
+      flower(width - 78, 76, 13, "#f5dce4");
+      context.fillStyle = "#d394a8";
+      context.globalAlpha = 0.85;
+      context.font = "24px Georgia";
+      context.textAlign = "center";
+      context.fillText("✦", width / 2, 54);
+      context.globalAlpha = 1;
+    } else {
+      // Blush watercolor-like flower clusters with sage leaves in the corners.
+      flower(70, 76, 23, "#e7a8bb");
+      flower(119, 57, 15, "#fce5ec");
+      flower(45, 118, 12, "#d98da7");
+      flower(width - 70, 76, 23, "#e7a8bb");
+      flower(width - 119, 57, 15, "#fce5ec");
+      flower(width - 45, 118, 12, "#d98da7");
+      flower(70, height - 80, 21, "#e7a8bb");
+      flower(width - 70, height - 80, 21, "#e7a8bb");
+      leaf(26, 142, 0.18, "#e7a8bb", 0.72);
+      leaf(width - 116, 142, 2.92, "#e7a8bb", 0.72);
+      context.fillStyle = "#c9849e";
+      context.font = "27px Georgia";
+      context.textAlign = "center";
+      context.fillText("♡", width / 2, 55);
+    }
+    context.restore();
   };
 
   const composePhotos = async (photos: string[]) => {
@@ -2493,191 +2902,14 @@ function PhotoBooth() {
     if (!canvas || photos.length < selectedTemplate.slots) return;
 
     setIsComposing(true);
-
     try {
-      const width = 1080;
-      const height = 1350;
-      canvas.width = width;
-      canvas.height = height;
-
-      const context = canvas.getContext("2d");
-      if (!context) return;
-
-      context.imageSmoothingEnabled = true;
-      context.imageSmoothingQuality = "high";
-
-      context.fillStyle = selectedTemplate.background;
-      context.fillRect(0, 0, width, height);
-
-      const images = await Promise.all(
-        photos.slice(0, selectedTemplate.slots).map(loadImage)
+      await renderKeepsakeCanvas(
+        canvas,
+        photos,
+        selectedTemplate,
+        orientation,
+        loadImage
       );
-      const elioraImage = await loadImage("/eliora-faye.jpeg");
-
-      if (selectedTemplate.style === "single") {
-        drawText(context, "A LITTLE BLESSING", width / 2, 75, "600 22px Arial");
-        drawSlot(context, images[0], 70, 110, 940, 900, 42);
-        drawText(
-          context,
-          "Eliora Faye",
-          width / 2,
-          1095,
-          "600 48px Georgia, serif"
-        );
-        drawText(
-          context,
-          "Holy Baptism • November 22, 2026",
-          width / 2,
-          1140,
-          "22px Arial"
-        );
-        drawText(
-          context,
-          "A day of love, faith & blessings",
-          width / 2,
-          1205,
-          "italic 25px Georgia, serif"
-        );
-        drawElioraSticker(context, elioraImage, 905, 1180, 105);
-      }
-
-      if (selectedTemplate.style === "duo") {
-        drawText(
-          context,
-          "TWO LITTLE MOMENTS",
-          width / 2,
-          68,
-          "600 21px Arial"
-        );
-        drawSlot(context, images[0], 55, 105, 470, 920, 34);
-        drawSlot(context, images[1], 555, 105, 470, 920, 34);
-        drawText(
-          context,
-          "Eliora Faye",
-          width / 2,
-          1095,
-          "600 46px Georgia, serif"
-        );
-        drawText(
-          context,
-          "Loved • Blessed • Cherished",
-          width / 2,
-          1140,
-          "22px Arial"
-        );
-        drawText(context, "November 22, 2026", width / 2, 1195, "20px Arial");
-        drawElioraSticker(context, elioraImage, 65, 1160, 110);
-      }
-
-      if (selectedTemplate.style === "trio") {
-        drawText(
-          context,
-          "FAITH • LOVE • JOY",
-          width / 2,
-          65,
-          "600 21px Arial"
-        );
-        drawSlot(context, images[0], 55, 105, 600, 810, 38);
-        drawSlot(context, images[1], 685, 105, 340, 385, 28);
-        drawSlot(context, images[2], 685, 530, 340, 385, 28);
-        drawText(context, "Eliora Faye", 540, 1015, "600 46px Georgia, serif");
-        drawText(
-          context,
-          "A beautiful little blessing",
-          540,
-          1065,
-          "22px Arial"
-        );
-        drawText(context, "Holy Baptism • 2026", 540, 1110, "20px Arial");
-        drawElioraSticker(context, elioraImage, 895, 1150, 115);
-        drawText(context, "♡", 540, 1230, "38px serif");
-      }
-
-      if (selectedTemplate.style === "grid") {
-        drawText(
-          context,
-          "ELIORA FAYE ♡",
-          width / 2,
-          68,
-          "600 24px Georgia, serif"
-        );
-        drawSlot(context, images[0], 55, 105, 470, 500, 30);
-        drawSlot(context, images[1], 555, 105, 470, 500, 30);
-        drawSlot(context, images[2], 55, 645, 470, 500, 30);
-        drawSlot(context, images[3], 555, 645, 470, 500, 30);
-        drawText(
-          context,
-          "Sweet • Loved • Blessed",
-          width / 2,
-          1225,
-          "20px Arial"
-        );
-        drawElioraSticker(context, elioraImage, 35, 15, 80);
-      }
-
-      if (selectedTemplate.style === "masonry") {
-        drawText(context, "BLOOM MASONRY", width / 2, 65, "600 21px Arial");
-        drawSlot(context, images[0], 55, 105, 450, 690, 34);
-        drawSlot(context, images[1], 535, 105, 490, 330, 30);
-        drawSlot(context, images[2], 535, 470, 490, 325, 30);
-        drawSlot(context, images[3], 55, 830, 970, 315, 30);
-        drawText(
-          context,
-          "Loved beyond measure",
-          width / 2,
-          1210,
-          "italic 28px Georgia, serif"
-        );
-        drawText(context, "November 22, 2026", width / 2, 1250, "18px Arial");
-        drawElioraSticker(context, elioraImage, 925, 1180, 85);
-      }
-
-      if (selectedTemplate.style === "portrait") {
-        context.strokeStyle = selectedTemplate.border;
-        context.lineWidth = 16;
-        context.strokeRect(32, 32, width - 64, height - 64);
-        context.strokeStyle = "#efd5de";
-        context.lineWidth = 3;
-        context.strokeRect(52, 52, width - 104, height - 104);
-
-        // A real Eliora portrait becomes part of the border instead of a random stock image.
-        drawElioraSticker(context, elioraImage, 60, 60, 135);
-        drawElioraSticker(context, elioraImage, 885, 60, 135);
-        drawElioraSticker(context, elioraImage, 60, 1155, 135);
-        drawElioraSticker(context, elioraImage, 885, 1155, 135);
-
-        drawText(
-          context,
-          "THE HOLY BAPTISM OF",
-          width / 2,
-          115,
-          "600 20px Arial"
-        );
-        drawText(
-          context,
-          "ELIORA FAYE",
-          width / 2,
-          165,
-          "600 42px Georgia, serif"
-        );
-        drawSlot(context, images[0], 125, 220, 830, 790, 180);
-        drawText(context, "November 22, 2026", width / 2, 1080, "22px Arial");
-        drawText(
-          context,
-          "A little memory to keep forever ♡",
-          width / 2,
-          1140,
-          "italic 25px Georgia, serif"
-        );
-        drawText(
-          context,
-          "10:30 AM • Baptism Celebration",
-          width / 2,
-          1215,
-          "18px Arial"
-        );
-      }
-
       setFinalPhoto(canvas.toDataURL("image/jpeg", 0.94));
       stopCamera();
     } catch (error) {
@@ -2780,9 +3012,9 @@ function PhotoBooth() {
 
       <Reveal>
         <SectionHeading
-          eyebrow="Pick a template first"
+          eyebrow="Choose your keepsake design"
           title="Eliora's Photo Booth"
-          description="Choose a layout, take the required number of photos, and the booth will arrange everything for you automatically."
+          description="Choose portrait or landscape, pick a collage layout, and save a keepsake with elegant typography and clear photo/text spacing."
         />
       </Reveal>
 
@@ -2790,7 +3022,11 @@ function PhotoBooth() {
         <div className="grid items-start gap-8 lg:grid-cols-[1fr_0.95fr]">
           <Reveal>
             <div className="rounded-[38px] border border-[#efd3dc] bg-white p-4 shadow-2xl shadow-[#c78da0]/10 md:p-6">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-[30px] bg-[#f8e2e9]">
+              <div
+                className={`relative overflow-hidden rounded-[30px] bg-[#f8e2e9] ${
+                  orientation === "portrait" ? "aspect-[4/5]" : "aspect-[3/2]"
+                }`}
+              >
                 {finalPhoto ? (
                   <img
                     src={finalPhoto}
@@ -2963,7 +3199,82 @@ function PhotoBooth() {
                 </div>
               </div>
 
-              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2">
+              <div className="mt-6 rounded-[24px] border border-[#f0dce2] bg-[#fffafc] p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#b9788d]">
+                  01 • Choose orientation
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOrientation("portrait");
+                      setFinalPhoto(null);
+                      setCapturedPhotos([]);
+                      stopCamera();
+                    }}
+                    className={`flex items-center gap-3 rounded-2xl border-2 p-3 text-left transition ${
+                      orientation === "portrait"
+                        ? "border-[#b85c7b] bg-[#fff0f4]"
+                        : "border-[#f0dce2] bg-white hover:border-[#e0b4c2]"
+                    }`}
+                  >
+                    <span className="flex h-12 w-9 shrink-0 items-center justify-center rounded-md border-2 border-[#c78da0] bg-[#fff7fa]">
+                      <span className="h-7 w-5 rounded-sm bg-[#e7c2ce]" />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-semibold text-[#8f5269]">
+                        Portrait
+                      </span>
+                      <span className="text-[10px] text-[#a17e8b]">
+                        Vertical • 4:5
+                      </span>
+                    </span>
+                    {orientation === "portrait" && (
+                      <CheckCircle2
+                        size={16}
+                        className="ml-auto text-[#b85c7b]"
+                      />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOrientation("landscape");
+                      setFinalPhoto(null);
+                      setCapturedPhotos([]);
+                      stopCamera();
+                    }}
+                    className={`flex items-center gap-3 rounded-2xl border-2 p-3 text-left transition ${
+                      orientation === "landscape"
+                        ? "border-[#b85c7b] bg-[#fff0f4]"
+                        : "border-[#f0dce2] bg-white hover:border-[#e0b4c2]"
+                    }`}
+                  >
+                    <span className="flex h-9 w-12 shrink-0 items-center justify-center rounded-md border-2 border-[#c78da0] bg-[#fff7fa]">
+                      <span className="h-5 w-8 rounded-sm bg-[#e7c2ce]" />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-semibold text-[#8f5269]">
+                        Landscape
+                      </span>
+                      <span className="text-[10px] text-[#a17e8b]">
+                        Horizontal • 3:2
+                      </span>
+                    </span>
+                    {orientation === "landscape" && (
+                      <CheckCircle2
+                        size={16}
+                        className="ml-auto text-[#b85c7b]"
+                      />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.22em] text-[#b9788d]">
+                02 • Choose photo layout
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2">
                 {PHOTO_TEMPLATES.map((template) => {
                   const active = selectedTemplateId === template.id;
 
@@ -2981,6 +3292,7 @@ function PhotoBooth() {
                       <TemplatePreview
                         template={template}
                         image={previewImage}
+                        orientation={orientation}
                       />
 
                       <div className="mt-2 flex items-start justify-between gap-2 px-1">
@@ -3015,9 +3327,9 @@ function PhotoBooth() {
                       {selectedTemplate.slots === 1 ? "photo" : "photos"}
                     </p>
                     <p className="mt-1 text-xs leading-6 text-[#a17e8b]">
-                      The camera photos are the main photos in the template.
-                      Eliora's real photo is only used as a decorative
-                      sticker/border where the design calls for it.
+                      A botanical or blush floral souvenir layout with the name
+                      Eliora Faye and the baptism date. The selected design and
+                      photo arrangement are saved together.
                     </p>
                   </div>
                 </div>
@@ -3030,153 +3342,362 @@ function PhotoBooth() {
   );
 }
 
+async function renderKeepsakeCanvas(
+  canvas: HTMLCanvasElement,
+  photos: string[],
+  template: PhotoTemplate,
+  orientation: "portrait" | "landscape",
+  loadImage: (src: string) => Promise<HTMLImageElement>
+): Promise<void> {
+  const isLandscape = orientation === "landscape";
+  // Keep the export ratio identical to the preview card (portrait 4:5, landscape 3:2).
+  const width = isLandscape ? 1500 : 1080;
+  const height = isLandscape ? 1000 : 1350;
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+
+  const images = await Promise.all(
+    photos.slice(0, template.slots).map(loadImage)
+  );
+  const scaleX = (value: number) => (value / 100) * width;
+  const scaleY = (value: number) => (value / 100) * height;
+  const textColor = "#a64f72";
+  const floral = template.theme === "eucalyptus";
+
+  // Match the preview's exact palette: selected template background, border and theme text.
+  context.fillStyle = template.background;
+  context.fillRect(0, 0, width, height);
+  context.save();
+  context.strokeStyle = template.border;
+  context.lineWidth = Math.max(2, width * 0.006);
+  context.beginPath();
+  context.roundRect(
+    width * 0.012,
+    height * 0.012,
+    width * 0.976,
+    height * 0.976,
+    width * 0.043
+  );
+  context.stroke();
+  context.restore();
+
+  // Small corner ornaments mirror the thumbnail and stay clear of the photos and lettering.
+  const drawFlower = (x: number, y: number, radius: number, color: string) => {
+    context.save();
+    context.translate(x, y);
+    context.fillStyle = color;
+    for (let i = 0; i < 5; i++) {
+      context.rotate((Math.PI * 2) / 5);
+      context.beginPath();
+      context.ellipse(
+        0,
+        -radius * 0.62,
+        radius * 0.38,
+        radius * 0.66,
+        0,
+        0,
+        Math.PI * 2
+      );
+      context.fill();
+    }
+    context.fillStyle = floral ? "#f0cbd5" : "#f0cbd5";
+    context.beginPath();
+    context.arc(0, 0, radius * 0.22, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+  };
+
+  if (floral) {
+    // Eucalyptus preview: soft sage leaves tucked behind the left/right photo edges,
+    // plus tiny gold stars. Keep the same relative placement as TemplatePreview.
+    const leafBlob = (
+      x: number,
+      y: number,
+      rx: number,
+      ry: number,
+      angle: number,
+      color: string
+    ) => {
+      context.save();
+      context.translate(x, y);
+      context.rotate(angle);
+      context.fillStyle = color;
+      context.globalAlpha = 0.7;
+      context.beginPath();
+      context.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+      context.fill();
+      context.restore();
+    };
+    context.save();
+    context.filter = `blur(${Math.max(1, width * 0.002)}px)`;
+    leafBlob(scaleX(1), scaleY(25), scaleX(5.5), scaleY(8), -0.45, "#f0cbd5");
+    leafBlob(scaleX(1), scaleY(34), scaleX(5), scaleY(7), 0.28, "#d98da7");
+    leafBlob(scaleX(99), scaleY(25), scaleX(5.5), scaleY(8), 0.45, "#f0cbd5");
+    leafBlob(scaleX(99), scaleY(34), scaleX(5), scaleY(7), -0.28, "#d98da7");
+    context.restore();
+    context.fillStyle = "#f0cbd5";
+    context.font = `${Math.round(width * 0.03)}px Georgia, serif`;
+    context.textAlign = "center";
+    context.fillText("✦", scaleX(7), scaleY(7));
+    context.fillText("✦", scaleX(93), scaleY(7));
+  } else {
+    // Blush preview: flower clusters in the top corners and small flowers by the footer.
+    drawFlower(scaleX(1.5), scaleY(2), scaleX(4.5), "#d98da7");
+    drawFlower(scaleX(7), scaleY(3), scaleX(3), "#f0cbd5");
+    drawFlower(scaleX(98.5), scaleY(2), scaleX(4.5), "#d98da7");
+    drawFlower(scaleX(93), scaleY(3), scaleX(3), "#f0cbd5");
+    drawFlower(scaleX(7), scaleY(84), scaleX(2.5), "#d98da7");
+    drawFlower(scaleX(93), scaleY(84), scaleX(2.5), "#d98da7");
+  }
+
+  const drawCover = (
+    image: HTMLImageElement,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    radius: number
+  ) => {
+    const iw = image.naturalWidth || image.width;
+    const ih = image.naturalHeight || image.height;
+    const targetRatio = w / h;
+    const sourceRatio = iw / ih;
+    let sx = 0,
+      sy = 0,
+      sw = iw,
+      sh = ih;
+    if (sourceRatio > targetRatio) {
+      sw = ih * targetRatio;
+      sx = (iw - sw) / 2;
+    } else {
+      sh = iw / targetRatio;
+      sy = (ih - sh) / 2;
+    }
+    context.save();
+    context.shadowColor = "rgba(90,65,70,.18)";
+    context.shadowBlur = width * 0.04;
+    context.shadowOffsetY = height * 0.013;
+    context.fillStyle = "#fff";
+    context.beginPath();
+    context.roundRect(x, y, w, h, radius);
+    context.fill();
+    context.restore();
+    context.save();
+    context.beginPath();
+    context.roundRect(x, y, w, h, radius);
+    context.clip();
+    context.drawImage(image, sx, sy, sw, sh, x, y, w, h);
+    context.restore();
+    context.save();
+    context.strokeStyle = template.border;
+    context.lineWidth = Math.max(2, width * 0.0033);
+    context.beginPath();
+    context.roundRect(x, y, w, h, radius);
+    context.stroke();
+    context.restore();
+  };
+  const slot = (
+    index: number,
+    left: number,
+    top: number,
+    w: number,
+    h: number,
+    radius = 2
+  ) => {
+    if (!images[index]) return;
+    const pixelW = scaleX(w);
+    const pixelH = scaleY(h);
+    const cornerRadius = Math.min(pixelW, pixelH) * (radius / 100);
+    drawCover(
+      images[index],
+      scaleX(left),
+      scaleY(top),
+      pixelW,
+      pixelH,
+      cornerRadius
+    );
+  };
+
+  // The export now uses the same percentage-based positions as TemplatePreview.
+  if (!isLandscape) {
+    context.textAlign = "center";
+    context.fillStyle = textColor;
+    context.font = `600 ${Math.round(width * 0.0167)}px Arial, sans-serif`;
+    context.letterSpacing = `${width * 0.0016}px`;
+    context.fillText("THE HOLY BAPTISM OF", width / 2, scaleY(6.8));
+    context.letterSpacing = "0px";
+    context.font = `italic ${Math.round(
+      width * 0.0433
+    )}px Georgia, 'Times New Roman', serif`;
+    context.fillText("Eliora Faye", width / 2, scaleY(10.6));
+    context.strokeStyle = template.border;
+    context.lineWidth = Math.max(2, width * 0.0012);
+    context.beginPath();
+    context.moveTo(scaleX(28), scaleY(13));
+    context.lineTo(scaleX(72), scaleY(13));
+    context.stroke();
+
+    if (template.style === "single") slot(0, 8, 16, 84, 55);
+    else if (template.style === "duo") {
+      slot(0, 6, 16, 42, 55);
+      slot(1, 52, 16, 42, 55);
+    } else if (template.style === "trio") {
+      slot(0, 6, 16, 54, 55);
+      slot(1, 64, 16, 30, 25);
+      slot(2, 64, 45, 30, 25);
+    } else if (template.style === "grid") {
+      const gx = 6,
+        gy = 16,
+        gw = 88,
+        gh = 57,
+        gap = 1.5;
+      slot(0, gx, gy, (gw - gap) / 2, (gh - gap) / 2);
+      slot(1, gx + (gw + gap) / 2, gy, (gw - gap) / 2, (gh - gap) / 2);
+      slot(2, gx, gy + (gh + gap) / 2, (gw - gap) / 2, (gh - gap) / 2);
+      slot(
+        3,
+        gx + (gw + gap) / 2,
+        gy + (gh + gap) / 2,
+        (gw - gap) / 2,
+        (gh - gap) / 2
+      );
+    } else if (template.style === "masonry") {
+      slot(0, 6, 16, 42, 42);
+      slot(1, 52, 16, 42, 20);
+      slot(2, 52, 40, 42, 18);
+      slot(3, 6, 60, 88, 12);
+    } else if (template.style === "portrait") slot(0, 15, 18, 70, 50, 45);
+
+    context.fillStyle = textColor;
+    context.textAlign = "center";
+    context.font = `italic ${Math.round(
+      width * 0.04
+    )}px Georgia, 'Times New Roman', serif`;
+    context.fillText("Eliora Faye", width / 2, scaleY(91.5));
+    context.font = `600 ${Math.round(width * 0.0167)}px Arial, sans-serif`;
+    context.letterSpacing = `${width * 0.0012}px`;
+    context.fillText("HOLY BAPTISM • NOVEMBER 22, 2026", width / 2, scaleY(97));
+    context.letterSpacing = "0px";
+  } else {
+    context.textAlign = "center";
+    context.fillStyle = textColor;
+    context.font = `600 ${Math.round(width * 0.0167)}px Arial, sans-serif`;
+    context.letterSpacing = `${width * 0.001}px`;
+    context.fillText("THE HOLY BAPTISM OF", scaleX(17.5), scaleY(14.2));
+    context.letterSpacing = "0px";
+    context.font = `italic ${Math.round(
+      width * 0.0433
+    )}px Georgia, 'Times New Roman', serif`;
+    context.fillText("Eliora Faye", scaleX(17.5), scaleY(27));
+    context.strokeStyle = template.border;
+    context.lineWidth = Math.max(2, width * 0.0012);
+    context.beginPath();
+    context.moveTo(scaleX(8), scaleY(30));
+    context.lineTo(scaleX(28), scaleY(30));
+    context.stroke();
+
+    if (template.style === "single") slot(0, 34, 9, 60, 60);
+    else if (template.style === "duo") {
+      slot(0, 34, 9, 29, 60);
+      slot(1, 65, 9, 29, 60);
+    } else if (template.style === "trio") {
+      slot(0, 34, 9, 36, 60);
+      slot(1, 72, 9, 22, 32);
+      slot(2, 72, 44, 22, 27);
+    } else if (template.style === "grid") {
+      const gx = 34,
+        gy = 9,
+        gw = 60,
+        gh = 56,
+        gap = 1.5;
+      slot(0, gx, gy, (gw - gap) / 2, (gh - gap) / 2);
+      slot(1, gx + (gw + gap) / 2, gy, (gw - gap) / 2, (gh - gap) / 2);
+      slot(2, gx, gy + (gh + gap) / 2, (gw - gap) / 2, (gh - gap) / 2);
+      slot(
+        3,
+        gx + (gw + gap) / 2,
+        gy + (gh + gap) / 2,
+        (gw - gap) / 2,
+        (gh - gap) / 2
+      );
+    } else if (template.style === "masonry") {
+      slot(0, 34, 9, 28, 60);
+      slot(1, 64, 9, 30, 32);
+      slot(2, 64, 44, 30, 27);
+      slot(3, 34, 72, 60, 12);
+    } else if (template.style === "portrait") slot(0, 38, 12, 52, 58, 45);
+
+    context.fillStyle = textColor;
+    context.textAlign = "center";
+    context.font = `italic ${Math.round(
+      width * 0.04
+    )}px Georgia, 'Times New Roman', serif`;
+    context.fillText("Eliora Faye", width / 2, scaleY(92));
+    context.font = `600 ${Math.round(width * 0.0167)}px Arial, sans-serif`;
+    context.letterSpacing = `${width * 0.0008}px`;
+    context.fillText("HOLY BAPTISM • NOVEMBER 22, 2026", width / 2, scaleY(97));
+    context.letterSpacing = "0px";
+  }
+}
+
 function TemplatePreview({
   template,
   image,
+  orientation,
 }: {
   template: PhotoTemplate;
   image: string;
+  orientation: "portrait" | "landscape";
 }) {
-  const base = "absolute overflow-hidden rounded-[8px] border";
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !image) return;
+    const loadPreviewImage = (src: string) =>
+      new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+
+    const render = async () => {
+      try {
+        // Use the very same canvas renderer as Save Keepsake, including its typography,
+        // border, photo crop, decorations, spacing and orientation-specific positions.
+        await renderKeepsakeCanvas(
+          canvas,
+          Array.from({ length: template.slots }, () => image),
+          template,
+          orientation,
+          loadPreviewImage
+        );
+      } catch (error) {
+        console.error("TEMPLATE PREVIEW ERROR:", error);
+      }
+    };
+
+    void render();
+  }, [template, image, orientation]);
 
   return (
     <div
-      className="relative aspect-[4/5] overflow-hidden rounded-[16px]"
-      style={{ background: template.background, borderColor: template.border }}
+      className={`relative overflow-hidden rounded-[13px] ${
+        orientation === "portrait" ? "aspect-[4/5]" : "aspect-[3/2]"
+      }`}
+      style={{ background: template.background }}
     >
-      {template.style === "single" && (
-        <div
-          className={`${base} inset-[13%_9%_19%]`}
-          style={{ borderColor: template.border }}
-        >
-          <img src={image} alt="" className="h-full w-full object-cover" />
-          <span className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-white/90 px-2 py-0.5 text-[6px] font-bold text-[#a45d77]">
-            ELIORA FAYE
-          </span>
-        </div>
-      )}
-
-      {template.style === "duo" && (
-        <>
-          <img
-            src={image}
-            alt=""
-            className={`${base} left-[7%] top-[12%] h-[72%] w-[41%] object-cover`}
-            style={{ borderColor: template.border }}
-          />
-          <img
-            src={image}
-            alt=""
-            className={`${base} right-[7%] top-[12%] h-[72%] w-[41%] object-cover`}
-            style={{ borderColor: template.border }}
-          />
-          <span className="absolute bottom-[5%] left-1/2 -translate-x-1/2 font-serif text-[9px] text-[#9b6176]">
-            Two little moments
-          </span>
-        </>
-      )}
-
-      {template.style === "trio" && (
-        <>
-          <img
-            src={image}
-            alt=""
-            className={`${base} left-[7%] top-[12%] h-[62%] w-[55%] object-cover`}
-            style={{ borderColor: template.border }}
-          />
-          <img
-            src={image}
-            alt=""
-            className={`${base} right-[7%] top-[12%] h-[29%] w-[30%] object-cover`}
-            style={{ borderColor: template.border }}
-          />
-          <img
-            src={image}
-            alt=""
-            className={`${base} right-[7%] bottom-[18%] h-[29%] w-[30%] object-cover`}
-            style={{ borderColor: template.border }}
-          />
-          <span className="absolute bottom-[6%] left-[10%] text-[8px] font-semibold text-[#a15e77]">
-            FAITH • LOVE • JOY
-          </span>
-        </>
-      )}
-
-      {template.style === "grid" && (
-        <div className="absolute inset-[8%] grid grid-cols-2 gap-2">
-          {[0, 1, 2, 3].map((item) => (
-            <img
-              key={item}
-              src={image}
-              alt=""
-              className="h-full w-full rounded-[8px] object-cover"
-              style={{ border: `2px solid ${template.border}` }}
-            />
-          ))}
-          <span className="absolute bottom-[-7%] left-1/2 -translate-x-1/2 whitespace-nowrap font-serif text-[9px] text-[#c05c83]">
-            Eliora Faye ♡
-          </span>
-        </div>
-      )}
-
-      {template.style === "masonry" && (
-        <>
-          <img
-            src={image}
-            alt=""
-            className={`${base} left-[7%] top-[10%] h-[56%] w-[41%] object-cover`}
-            style={{ borderColor: template.border }}
-          />
-          <img
-            src={image}
-            alt=""
-            className={`${base} right-[7%] top-[10%] h-[28%] w-[45%] object-cover`}
-            style={{ borderColor: template.border }}
-          />
-          <img
-            src={image}
-            alt=""
-            className={`${base} right-[7%] top-[40%] h-[26%] w-[45%] object-cover`}
-            style={{ borderColor: template.border }}
-          />
-          <img
-            src={image}
-            alt=""
-            className={`${base} bottom-[10%] left-[7%] h-[22%] w-[86%] object-cover`}
-            style={{ borderColor: template.border }}
-          />
-          <span className="absolute bottom-[3%] left-1/2 -translate-x-1/2 text-[7px] font-semibold text-[#a86b7e]">
-            BLOOM MASONRY
-          </span>
-        </>
-      )}
-
-      {template.style === "portrait" && (
-        <>
-          <img
-            src={image}
-            alt=""
-            className="absolute left-[15%] top-[20%] h-[62%] w-[70%] rounded-[45%] object-cover"
-            style={{ border: `5px solid ${template.border}` }}
-          />
-          {[
-            "left-2 top-2",
-            "right-2 top-2",
-            "left-2 bottom-2",
-            "right-2 bottom-2",
-          ].map((position) => (
-            <img
-              key={position}
-              src={image}
-              alt=""
-              className={`absolute ${position} h-10 w-10 rounded-full border-2 border-white object-cover shadow`}
-            />
-          ))}
-          <span className="absolute left-1/2 bottom-[5%] -translate-x-1/2 whitespace-nowrap text-[7px] font-bold tracking-[0.15em] text-[#9b5d73]">
-            HOLY BAPTISM • ELIORA FAYE
-          </span>
-        </>
-      )}
+      <canvas
+        ref={canvasRef}
+        aria-label={`${template.name} photo layout preview`}
+        className="block h-full w-full"
+        style={{ width: "100%", height: "100%" }}
+      />
     </div>
   );
 }
