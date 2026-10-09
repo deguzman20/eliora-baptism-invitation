@@ -31,6 +31,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta property="fb:app_id" content="2174331380102780" />
+      </head>
       <body>{children}</body>
     </html>
   );
