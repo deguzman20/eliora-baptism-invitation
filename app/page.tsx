@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 
 import {
   AnimatePresence,
@@ -16,6 +23,10 @@ import {
   CalendarDays,
   Camera,
   Download,
+  ImagePlus,
+  Film,
+  Upload,
+  Play,
   Check,
   CheckCircle2,
   ChevronLeft,
@@ -44,8 +55,13 @@ import {
   query,
   serverTimestamp,
 } from "firebase/firestore";
+import {
+  getDownloadURL,
+  ref as storageRef,
+  uploadBytes,
+} from "firebase/storage";
 
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
 
 /* =========================================================
    EVENT DATA
@@ -110,6 +126,14 @@ type ReservationEntry = {
 type GalleryImage = {
   src: string;
   title: string;
+};
+
+type AlbumMedia = {
+  id: string;
+  url: string;
+  name: string;
+  type: "image" | "video";
+  createdAt?: { seconds?: number; nanoseconds?: number } | null;
 };
 
 type PhotoTemplate = {
@@ -311,6 +335,25 @@ export default function Home() {
   ------------------------------------------------------- */
 
   const [selectedImage, setSelectedImage] = useState<number | null>(null);
+  const [albumMedia, setAlbumMedia] = useState<AlbumMedia[]>([]);
+  const [albumGridPage, setAlbumGridPage] = useState(1);
+  const ALBUM_MEDIA_PER_PAGE = 6;
+  const totalAlbumGridPages = Math.max(
+    1,
+    Math.ceil(albumMedia.length / ALBUM_MEDIA_PER_PAGE)
+  );
+  const displayedAlbumMedia = albumMedia.slice(
+    (albumGridPage - 1) * ALBUM_MEDIA_PER_PAGE,
+    albumGridPage * ALBUM_MEDIA_PER_PAGE
+  );
+  const [selectedAlbumMedia, setSelectedAlbumMedia] = useState<number | null>(
+    null
+  );
+  const [albumPageDirection, setAlbumPageDirection] = useState<1 | -1>(1);
+  const [isUploadingAlbumMedia, setIsUploadingAlbumMedia] = useState(false);
+  const [albumUploadError, setAlbumUploadError] = useState("");
+  const [albumUploadSuccess, setAlbumUploadSuccess] = useState("");
+  const albumInputRef = useRef<HTMLInputElement | null>(null);
 
   /* -------------------------------------------------------
      GUESTBOOK
@@ -427,6 +470,120 @@ export default function Home() {
 
     return () => unsubscribe();
   }, []);
+
+  /* =========================================================
+     FIREBASE SHARED PHOTO & VIDEO ALBUM
+  ========================================================= */
+
+  useEffect(() => {
+    const albumQuery = query(
+      collection(db, "sharedAlbum"),
+      orderBy("createdAt", "desc")
+    );
+    const unsubscribe = onSnapshot(
+      albumQuery,
+      (snapshot) => {
+        const items: AlbumMedia[] = snapshot.docs.flatMap((document) => {
+          const data = document.data();
+          if (
+            typeof data.url !== "string" ||
+            (data.type !== "image" && data.type !== "video")
+          )
+            return [];
+          return [
+            {
+              id: document.id,
+              url: data.url,
+              name:
+                typeof data.name === "string" ? data.name : "A little memory",
+              type: data.type,
+              createdAt: data.createdAt ?? null,
+            },
+          ];
+        });
+        setAlbumMedia(items);
+        setAlbumGridPage((currentPage) =>
+          Math.min(
+            currentPage,
+            Math.max(1, Math.ceil(items.length / ALBUM_MEDIA_PER_PAGE))
+          )
+        );
+      },
+      (error) => {
+        console.error("SHARED ALBUM ERROR:", error);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  const handleAlbumUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    setAlbumUploadError("");
+    setAlbumUploadSuccess("");
+    if (!files.length) return;
+
+    const allowed = files.filter(
+      (file) => file.type.startsWith("image/") || file.type.startsWith("video/")
+    );
+    if (allowed.length !== files.length) {
+      setAlbumUploadError("Images and videos only, please.");
+      event.target.value = "";
+      return;
+    }
+    const tooLarge = allowed.find(
+      (file) =>
+        file.size > (file.type.startsWith("video/") ? 100 : 15) * 1024 * 1024
+    );
+    if (tooLarge) {
+      setAlbumUploadError(
+        `“${tooLarge.name}” is too large. Images must be 15 MB or less; videos must be 100 MB or less.`
+      );
+      event.target.value = "";
+      return;
+    }
+
+    setIsUploadingAlbumMedia(true);
+    try {
+      for (const file of allowed) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-").slice(-100);
+        const path = `sharedAlbum/${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}-${safeName}`;
+        const fileRef = storageRef(storage, path);
+
+        // Upload the binary first, then save its download URL in Firestore.
+        await uploadBytes(fileRef, file, { contentType: file.type });
+        const url = await getDownloadURL(fileRef);
+
+        await addDoc(collection(db, "sharedAlbum"), {
+          url,
+          name: file.name,
+          type: file.type.startsWith("video/") ? "video" : "image",
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      setAlbumUploadSuccess(
+        `${allowed.length} ${
+          allowed.length === 1 ? "memory has" : "memories have"
+        } been added to the album.`
+      );
+    } catch (error: unknown) {
+      console.error("SHARED ALBUM UPLOAD ERROR:", error);
+      const firebaseError = error as {
+        code?: string;
+        message?: string;
+      };
+      const code = firebaseError?.code ?? "unknown";
+      const message = firebaseError?.message ?? "Unknown upload error";
+      setAlbumUploadError(
+        `Upload failed (${code}): ${message}. Check that the Storage bucket exists and that Storage Rules allow uploads to sharedAlbum/.`
+      );
+    } finally {
+      setIsUploadingAlbumMedia(false);
+      if (event.target) event.target.value = "";
+    }
+  };
 
   /* =========================================================
      FIREBASE RESERVATIONS — LIVE LIST AND COUNTS
@@ -816,7 +973,7 @@ export default function Home() {
   ========================================================= */
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#fffaf8] text-[#71495a]">
+    <main className="min-h-screen overflow-x-hidden bg-[#fffaf8] text-[#71495a] selection:bg-[#f2cbd8] selection:text-[#71495a]">
       {/* AUDIO */}
 
       <audio ref={audioRef} src="/baptism-music.mp3" loop preload="auto" />
@@ -880,7 +1037,7 @@ export default function Home() {
                 duration: 0.8,
               },
             }}
-            className="fixed inset-0 z-[80] flex min-h-screen items-center justify-center overflow-hidden bg-[#fff5f7] px-6"
+            className="fixed inset-0 z-[80] flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_top,_#fffdfd_0%,_#fff5f8_48%,_#f5dce6_100%)] px-5 sm:px-6"
           >
             <FloatingDecor />
 
@@ -897,7 +1054,7 @@ export default function Home() {
                 transition={{
                   duration: 1,
                 }}
-                className="text-center"
+                className="rounded-[2rem] border border-white/80 bg-white/45 px-5 py-5 text-center shadow-[0_18px_55px_rgba(143,82,105,0.08)] backdrop-blur-sm sm:px-8"
               >
                 <p className="mb-3 text-xs uppercase tracking-[0.35em] text-[#b9788d]">
                   A little blessing
@@ -1080,10 +1237,10 @@ export default function Home() {
         >
           {/* HERO */}
 
-          <section className="relative min-h-screen overflow-hidden bg-[#fff5f7]">
+          <section className="relative min-h-screen overflow-hidden bg-[radial-gradient(ellipse_at_15%_15%,_#fff_0%,_#fff5f8_42%,_#f7dfe8_100%)]">
             <FloatingDecor />
 
-            <div className="mx-auto flex min-h-screen max-w-6xl items-center px-6 py-24">
+            <div className="mx-auto flex min-h-screen max-w-6xl items-center px-5 py-20 sm:px-6 sm:py-24 lg:px-8">
               <div className="grid w-full items-center gap-14 md:grid-cols-2">
                 <motion.div
                   initial={{
@@ -1097,18 +1254,18 @@ export default function Home() {
                   transition={{
                     duration: 0.9,
                   }}
-                  className="text-center md:text-left"
+                  className="text-center md:py-8 md:text-left"
                 >
-                  <p className="text-xs uppercase tracking-[0.4em] text-[#b9788d]">
+                  <p className="inline-flex items-center gap-3 rounded-full border border-[#e8bdcb] bg-white/75 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#a75f79] shadow-sm backdrop-blur">
                     A day filled with love
                   </p>
 
-                  <h1 className="mt-5 font-serif text-6xl leading-none text-[#8f5269] md:text-8xl">
+                  <h1 className="mt-6 font-serif text-6xl font-medium leading-[0.92] tracking-[-0.045em] text-[#8f5269] sm:text-7xl md:text-8xl lg:text-[6.8rem]">
                     Eliora
                     <span className="block text-[#b85c7b]">Faye</span>
                   </h1>
 
-                  <p className="mx-auto mt-6 max-w-lg text-base leading-8 text-[#9c7483] md:mx-0">
+                  <p className="mx-auto mt-7 max-w-lg text-[15px] leading-8 text-[#946d7c] md:mx-0 md:text-base">
                     With hearts full of gratitude, we invite you to celebrate
                     the baptism of our precious little blessing.
                   </p>
@@ -1139,7 +1296,7 @@ export default function Home() {
                       y: heroImageY,
                       scale: heroImageScale,
                     }}
-                    className="relative z-10 overflow-hidden rounded-[45%_45%_12%_12%] border-[10px] border-white bg-white shadow-2xl"
+                    className="relative z-10 overflow-hidden rounded-[48%_48%_13%_13%] border-[8px] border-white bg-white shadow-[0_32px_85px_rgba(143,82,105,0.24)] ring-1 ring-[#eac9d5] sm:border-[11px]"
                   >
                     <img
                       src="/eliora-faye.jpeg"
@@ -1175,7 +1332,7 @@ export default function Home() {
 
           <section
             id="story"
-            className="relative overflow-hidden bg-[#fffaf8] px-6 py-28"
+            className="relative overflow-hidden bg-[linear-gradient(180deg,_#fffaf8_0%,_#fff_52%,_#fff6f8_100%)] px-5 py-20 sm:px-6 sm:py-24 lg:py-28"
           >
             <Reveal>
               <SectionHeading
@@ -1185,7 +1342,7 @@ export default function Home() {
               />
             </Reveal>
 
-            <div className="mx-auto mt-16 max-w-5xl">
+            <div className="mx-auto mt-12 max-w-5xl sm:mt-16">
               <div className="grid items-center gap-12 md:grid-cols-2">
                 <Reveal>
                   <div className="relative">
@@ -1194,7 +1351,7 @@ export default function Home() {
                     <img
                       src="/eliora-faye.jpeg"
                       alt="Eliora Faye"
-                      className="relative aspect-[4/5] w-full rounded-[30px] object-cover shadow-xl"
+                      className="relative aspect-[4/5] w-full rounded-[30px] border-[7px] border-white object-cover shadow-[0_28px_60px_rgba(143,82,105,0.18)] ring-1 ring-[#eed2dc]"
                     />
                   </div>
                 </Reveal>
@@ -1233,7 +1390,7 @@ export default function Home() {
 
           {/* TIMELINE */}
 
-          <section className="bg-[#fff0f4] px-6 py-28">
+          <section className="relative overflow-hidden bg-[radial-gradient(ellipse_at_50%_0%,_#fff_0%,_#fff0f4_56%,_#fbe5ec_100%)] px-5 py-20 sm:px-6 sm:py-24 lg:py-28">
             <Reveal>
               <SectionHeading
                 eyebrow="A day to remember"
@@ -1256,7 +1413,7 @@ export default function Home() {
 
               <TimelineItem
                 number="02"
-                time="11:30 AM"
+                time="12:00 AM"
                 title="Family Photos"
                 description="A few precious moments captured with family and loved ones."
                 icon={<Heart size={19} />}
@@ -1265,7 +1422,7 @@ export default function Home() {
 
               <TimelineItem
                 number="03"
-                time="12:00 PM"
+                time="1:30 PM"
                 title="Reception"
                 description="Let's gather, enjoy good food, and celebrate together."
                 icon={<PartyPopper size={19} />}
@@ -1276,7 +1433,7 @@ export default function Home() {
 
           {/* COUNTDOWN */}
 
-          <section className="relative overflow-hidden bg-[#fffaf8] px-6 py-28">
+          <section className="relative overflow-hidden bg-[linear-gradient(180deg,_#fffaf8_0%,_#fff_52%,_#fff6f8_100%)] px-5 py-20 sm:px-6 sm:py-24 lg:py-28">
             <FloatingMiniHearts />
 
             <Reveal>
@@ -1287,7 +1444,7 @@ export default function Home() {
               />
             </Reveal>
 
-            <div className="mx-auto mt-14 grid max-w-3xl grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="mx-auto mt-12 grid max-w-3xl grid-cols-2 gap-3 sm:gap-4 md:mt-14 md:grid-cols-4">
               <CountdownBox value={timeLeft.days} label="Days" />
 
               <CountdownBox value={timeLeft.hours} label="Hours" />
@@ -1315,7 +1472,7 @@ export default function Home() {
 
           {/* GALLERY */}
 
-          <section className="bg-[#fce5ec] px-6 py-28">
+          <section className="relative overflow-hidden bg-[linear-gradient(145deg,_#fce5ec_0%,_#fff0f5_48%,_#f8dce6_100%)] px-5 py-20 sm:px-6 sm:py-24 lg:py-28">
             <Reveal>
               <SectionHeading
                 eyebrow="Little moments"
@@ -1324,7 +1481,7 @@ export default function Home() {
               />
             </Reveal>
 
-            <div className="mx-auto mt-14 grid max-w-6xl grid-cols-2 gap-3 md:grid-cols-3">
+            <div className="mx-auto mt-12 grid max-w-6xl grid-cols-2 gap-3 sm:gap-4 md:mt-14 md:grid-cols-3">
               {GALLERY.map((image, index) => (
                 <Reveal key={`${image.src}-${index}`} delay={index * 0.05}>
                   <motion.button
@@ -1335,7 +1492,7 @@ export default function Home() {
                       scale: 0.98,
                     }}
                     onClick={() => setSelectedImage(index)}
-                    className={`group relative w-full overflow-hidden rounded-3xl bg-white shadow-md ${
+                    className={`group relative w-full overflow-hidden rounded-[1.6rem] border-[5px] border-white bg-white shadow-[0_16px_38px_rgba(143,82,105,0.14)] ring-1 ring-[#efd4de] ${
                       index === 0 ? "md:row-span-2" : ""
                     }`}
                   >
@@ -1356,9 +1513,217 @@ export default function Home() {
             </div>
           </section>
 
+          {/* SHARED PHOTO & VIDEO ALBUM */}
+          <section
+            id="shared-album"
+            className="relative overflow-hidden bg-[linear-gradient(180deg,_#fffafc_0%,_#fff0f5_52%,_#fce5ec_100%)] px-5 py-20 sm:px-6 sm:py-24 lg:py-28"
+          >
+            <FloatingDecor />
+            <Reveal>
+              <SectionHeading
+                eyebrow="Memories from everyone"
+                title="Our Little Memory Album"
+                description="Upload your favorite photos and videos from Eliora's special day, then tap any memory to open it like a photo album."
+              />
+            </Reveal>
+
+            <div className="relative z-10 mx-auto mt-10 max-w-5xl">
+              <div className="rounded-[2rem] border border-white/90 bg-white/80 p-5 shadow-[0_22px_55px_rgba(143,82,105,0.12)] backdrop-blur sm:p-7">
+                <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#fce5ec] text-[#b85c7b]">
+                    <ImagePlus size={27} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-serif text-xl text-[#8f5269]">
+                      Add your memories
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-[#a57887]">
+                      Choose photos or videos from your phone or computer.
+                      Images up to 15 MB and videos up to 100 MB each.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => albumInputRef.current?.click()}
+                    disabled={isUploadingAlbumMedia}
+                    className="inline-flex min-h-12 w-full shrink-0 items-center justify-center gap-2 rounded-full bg-[#b85c7b] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#b85c7b]/20 transition hover:bg-[#a34d6b] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  >
+                    {isUploadingAlbumMedia ? (
+                      <>
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />{" "}
+                        Uploading…
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={17} /> Upload photos / videos
+                      </>
+                    )}
+                  </button>
+                  <input
+                    ref={albumInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleAlbumUpload}
+                  />
+                </div>
+                {albumUploadError && (
+                  <p
+                    role="alert"
+                    className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700"
+                  >
+                    {albumUploadError}
+                  </p>
+                )}
+                {albumUploadSuccess && (
+                  <p
+                    role="status"
+                    className="mt-4 rounded-2xl bg-pink-50 px-4 py-3 text-sm text-[#8f5269]"
+                  >
+                    {albumUploadSuccess}
+                  </p>
+                )}
+              </div>
+
+              {albumMedia.length > 0 ? (
+                <>
+                  <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+                    {displayedAlbumMedia.map((item, index) => {
+                      const mediaIndex =
+                        (albumGridPage - 1) * ALBUM_MEDIA_PER_PAGE + index;
+                      return (
+                        <Reveal
+                          key={item.id}
+                          delay={Math.min(index * 0.025, 0.15)}
+                        >
+                          <motion.button
+                            type="button"
+                            whileHover={{ y: -3, scale: 1.015 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() =>
+                              setSelectedAlbumMedia(
+                                Math.floor(mediaIndex / 2) * 2
+                              )
+                            }
+                            className="group relative aspect-square w-full overflow-hidden rounded-[1.5rem] border-4 border-white bg-[#fce5ec] text-left shadow-[0_14px_34px_rgba(143,82,105,0.14)] ring-1 ring-[#efd4de]"
+                            aria-label={`Open ${item.type}: ${item.name}`}
+                          >
+                            {item.type === "image" ? (
+                              <img
+                                src={item.url}
+                                alt={item.name}
+                                loading="lazy"
+                                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                              />
+                            ) : (
+                              <div className="relative h-full w-full bg-[#5a3444]">
+                                <video
+                                  src={item.url}
+                                  className="h-full w-full object-cover opacity-80"
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                />
+                                <span className="absolute inset-0 flex items-center justify-center text-white">
+                                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/25 backdrop-blur">
+                                    <Play size={22} fill="currentColor" />
+                                  </span>
+                                </span>
+                                <span className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white">
+                                  <Film size={12} /> Video
+                                </span>
+                              </div>
+                            )}
+                          </motion.button>
+                        </Reveal>
+                      );
+                    })}
+                  </div>
+                  {totalAlbumGridPages > 1 && (
+                    <nav
+                      aria-label="Memory album pagination"
+                      className="mt-7 flex flex-wrap items-center justify-center gap-2"
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAlbumGridPage((page) => Math.max(1, page - 1))
+                        }
+                        disabled={albumGridPage === 1}
+                        className="inline-flex h-10 items-center gap-1 rounded-full border border-[#e8bdcc] bg-white/80 px-4 text-sm font-medium text-[#8f5269] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <ChevronLeft size={16} /> Previous
+                      </button>
+                      {Array.from(
+                        { length: totalAlbumGridPages },
+                        (_, index) => index + 1
+                      ).map((page) => (
+                        <button
+                          key={page}
+                          type="button"
+                          aria-label={`Go to memory page ${page}`}
+                          aria-current={
+                            albumGridPage === page ? "page" : undefined
+                          }
+                          onClick={() => setAlbumGridPage(page)}
+                          className={`h-10 min-w-10 rounded-full px-3 text-sm font-semibold transition ${
+                            albumGridPage === page
+                              ? "bg-[#b85c7b] text-white shadow-md shadow-[#b85c7b]/20"
+                              : "border border-[#e8bdcc] bg-white/80 text-[#8f5269] hover:bg-white"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAlbumGridPage((page) =>
+                            Math.min(totalAlbumGridPages, page + 1)
+                          )
+                        }
+                        disabled={albumGridPage === totalAlbumGridPages}
+                        className="inline-flex h-10 items-center gap-1 rounded-full border border-[#e8bdcc] bg-white/80 px-4 text-sm font-medium text-[#8f5269] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Next <ChevronRight size={16} />
+                      </button>
+                    </nav>
+                  )}
+                  <p className="mt-3 text-center text-xs text-[#a57887]">
+                    Showing {(albumGridPage - 1) * ALBUM_MEDIA_PER_PAGE + 1}–
+                    {Math.min(
+                      albumGridPage * ALBUM_MEDIA_PER_PAGE,
+                      albumMedia.length
+                    )}{" "}
+                    of {albumMedia.length} memories
+                  </p>
+                </>
+              ) : (
+                <div className="mt-8 rounded-[2rem] border-2 border-dashed border-[#e8bdcc] bg-white/55 px-6 py-12 text-center">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fce5ec] text-[#b85c7b]">
+                    <Camera size={27} />
+                  </div>
+                  <p className="mt-4 font-serif text-xl text-[#8f5269]">
+                    The album is waiting for its first memory
+                  </p>
+                  <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#a57887]">
+                    Be the first to add a photo or video. Once uploaded,
+                    memories will appear here for everyone visiting the
+                    invitation.
+                  </p>
+                </div>
+              )}
+              <p className="mt-5 text-center text-xs leading-5 text-[#b08a98]">
+                Please upload only photos and videos you have permission to
+                share. The shared album uses Firebase Storage and Firestore.
+              </p>
+            </div>
+          </section>
+
           {/* GODPARENTS */}
 
-          <section className="relative overflow-hidden bg-[#fff0f4] px-6 py-28">
+          <section className="relative overflow-hidden bg-[radial-gradient(ellipse_at_50%_0%,_#fff_0%,_#fff0f4_56%,_#fbe5ec_100%)] px-5 py-20 sm:px-6 sm:py-24 lg:py-28">
             <FloatingDecor />
 
             <Reveal>
@@ -1370,7 +1735,7 @@ export default function Home() {
             </Reveal>
 
             <Reveal delay={0.15}>
-              <div className="mx-auto mt-12 max-w-2xl rounded-[35px] border border-white/70 bg-white/65 p-7 text-center shadow-lg backdrop-blur-md md:p-10">
+              <div className="mx-auto mt-12 max-w-2xl rounded-[30px] border border-white/80 bg-white/75 p-7 text-center shadow-[0_22px_55px_rgba(143,82,105,0.12)] backdrop-blur-md ring-1 ring-[#f1d7e0] md:rounded-[35px] md:p-10">
                 <Heart
                   className="mx-auto text-[#b85c7b]"
                   size={27}
@@ -1393,7 +1758,7 @@ export default function Home() {
                       y: -3,
                       scale: 1.01,
                     }}
-                    className="flex items-center gap-4 rounded-2xl border border-white/80 bg-white/70 p-4 shadow-sm backdrop-blur"
+                    className="flex items-center gap-4 rounded-[1.4rem] border border-white/90 bg-white/85 p-4 shadow-[0_12px_28px_rgba(143,82,105,0.08)] backdrop-blur-md transition-all duration-300 hover:border-[#e7bdcc] hover:shadow-[0_18px_36px_rgba(143,82,105,0.14)] sm:p-5"
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f6d8e2] font-serif text-sm text-[#a45d77]">
                       {String(index + 1).padStart(2, "0")}
@@ -1420,7 +1785,7 @@ export default function Home() {
 
           {/* VENUES */}
 
-          <section className="bg-[#fffaf8] px-6 py-28">
+          <section className="relative overflow-hidden bg-[linear-gradient(180deg,_#fffaf8_0%,_#fff_100%)] px-5 py-20 sm:px-6 sm:py-24 lg:py-28">
             <Reveal>
               <SectionHeading
                 eyebrow="Where we'll gather"
@@ -1458,7 +1823,7 @@ export default function Home() {
 
           {/* DRESS CODE */}
 
-          <section className="bg-[#fce5ec] px-6 py-28">
+          <section className="relative overflow-hidden bg-[linear-gradient(145deg,_#fce5ec_0%,_#fff0f5_48%,_#f8dce6_100%)] px-5 py-20 sm:px-6 sm:py-24 lg:py-28">
             <Reveal>
               <SectionHeading
                 eyebrow="A little style"
@@ -1468,7 +1833,7 @@ export default function Home() {
             </Reveal>
 
             <Reveal delay={0.15}>
-              <div className="mx-auto mt-12 max-w-2xl rounded-[35px] bg-white p-8 text-center shadow-lg md:p-10">
+              <div className="mx-auto mt-12 max-w-2xl rounded-[30px] border border-white bg-white/95 p-7 text-center shadow-[0_22px_55px_rgba(143,82,105,0.13)] ring-1 ring-[#f0d4de] sm:rounded-[35px] sm:p-8 md:p-10">
                 <Shirt className="mx-auto text-[#b85c7b]" size={28} />
 
                 <p className="mt-5 font-serif text-2xl text-[#8f5269]">
@@ -1507,7 +1872,7 @@ export default function Home() {
 
           <section
             id="guestbook"
-            className="relative overflow-hidden bg-[#fffaf8] px-6 py-28"
+            className="relative overflow-hidden bg-[linear-gradient(180deg,_#fffaf8_0%,_#fff_52%,_#fff6f8_100%)] px-5 py-20 sm:px-6 sm:py-24 lg:py-28"
           >
             <FloatingDecor />
 
@@ -1526,7 +1891,7 @@ export default function Home() {
       ================================================= */}
 
                 <Reveal>
-                  <div className="relative overflow-hidden rounded-[35px] border border-[#f0d9e1] bg-white p-7 shadow-xl shadow-[#d9a6b6]/10 md:p-9">
+                  <div className="relative overflow-hidden rounded-[30px] border border-white bg-white/95 p-6 shadow-[0_24px_65px_rgba(143,82,105,0.13)] ring-1 ring-[#efd5df] sm:rounded-[35px] sm:p-7 md:p-9">
                     {/* Decorative top */}
                     <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#fce5ec]" />
 
@@ -2294,7 +2659,7 @@ export default function Home() {
 
             {/* LIVE RESERVATION LIST */}
             <Reveal delay={0.2}>
-              <div className="mx-auto mt-16 max-w-5xl">
+              <div className="mx-auto mt-12 max-w-5xl sm:mt-16">
                 <div className="mb-6 text-center">
                   <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#b9788d]">
                     Our lovely guests
@@ -2609,6 +2974,198 @@ export default function Home() {
             >
               <ChevronRight size={23} />
             </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* SHARED ALBUM VIEWER — FULLSCREEN PAGE-TURN BOOK */}
+      <AnimatePresence>
+        {selectedAlbumMedia !== null && albumMedia[selectedAlbumMedia] && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto overflow-x-hidden bg-[#24151d]/95 p-2 pb-6 backdrop-blur-xl sm:items-center sm:p-6"
+            onClick={() => setSelectedAlbumMedia(null)}
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(184,92,123,0.22)_0%,_transparent_68%)]" />
+            <button
+              type="button"
+              aria-label="Close album viewer"
+              onClick={() => setSelectedAlbumMedia(null)}
+              className="absolute right-3 top-3 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/20 sm:right-6 sm:top-6"
+            >
+              <X size={21} />
+            </button>
+
+            <div
+              className="relative z-10 my-2 flex w-full max-w-7xl flex-col items-center pb-3 sm:my-0 sm:pb-0"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="mb-3 max-w-[90vw] text-center sm:mb-5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-[#f3bfd0] sm:text-xs">
+                  Eliora Faye's Baptism
+                </p>
+                <h2 className="mt-1 font-serif text-xl text-[#fff5f8] sm:text-3xl">
+                  Our Memory Book
+                </h2>
+                <p className="mt-1 text-[10px] text-white/55 sm:text-xs">
+                  Two memories on every spread · turn the pages to revisit every
+                  little moment
+                </p>
+              </div>
+
+              {/* The open book */}
+              <div
+                className="relative w-full max-w-6xl rounded-[1.1rem] bg-[#6d3d50] p-[4px] shadow-[0_30px_100px_rgba(0,0,0,0.5)] sm:rounded-[2rem] sm:p-2"
+                style={{ perspective: "1800px" }}
+              >
+                <div className="relative grid grid-cols-1 overflow-hidden rounded-[0.85rem] bg-[#fff9f4] min-[480px]:grid-cols-2 min-[480px]:rounded-[1.5rem]">
+                  {/* Left page — first photo in this spread */}
+                  <div className="relative flex min-h-[38vh] min-w-0 flex-col items-center justify-center overflow-hidden border-b border-[#ead7d0] bg-[linear-gradient(135deg,_#fffdf9_0%,_#f8e9e8_100%)] px-3 py-4 min-[480px]:min-h-[68vh] min-[480px]:border-b-0 min-[480px]:border-r min-[480px]:px-4 min-[480px]:py-6">
+                    <div className="pointer-events-none absolute inset-2 rounded-lg border border-[#ead8d2] sm:inset-4" />
+                    <div className="relative flex min-h-[32vh] w-full flex-1 items-center justify-center min-[480px]:min-h-0">
+                      {albumMedia[selectedAlbumMedia].type === "image" ? (
+                        <img
+                          src={albumMedia[selectedAlbumMedia].url}
+                          alt="Memory from Eliora's baptism"
+                          className="h-auto max-h-[42vh] w-full max-w-[min(100%,520px)] rounded-md object-contain shadow-[0_8px_24px_rgba(64,35,44,0.22)] min-[480px]:max-h-[62vh]"
+                        />
+                      ) : (
+                        <video
+                          src={albumMedia[selectedAlbumMedia].url}
+                          controls
+                          playsInline
+                          className="h-auto max-h-[42vh] w-full max-w-[min(100%,520px)] rounded-md bg-black object-contain shadow-[0_8px_24px_rgba(64,35,44,0.22)] min-[480px]:max-h-[62vh]"
+                        />
+                      )}
+                    </div>
+                    <p className="relative mt-2 font-serif text-xs italic text-[#b0788b] sm:mt-3 sm:text-base">
+                      A little moment to treasure ♡
+                    </p>
+                  </div>
+
+                  {/* Right page — second photo in the same spread */}
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key={
+                        albumMedia[selectedAlbumMedia + 1]?.id ??
+                        albumMedia[selectedAlbumMedia].id
+                      }
+                      initial={{
+                        rotateY: albumPageDirection === 1 ? 78 : -78,
+                        opacity: 0.55,
+                      }}
+                      animate={{ rotateY: 0, opacity: 1 }}
+                      exit={{
+                        rotateY: albumPageDirection === 1 ? -72 : 72,
+                        opacity: 0.45,
+                      }}
+                      transition={{ duration: 0.58, ease: [0.22, 0.7, 0.2, 1] }}
+                      style={{
+                        transformOrigin:
+                          albumPageDirection === 1
+                            ? "left center"
+                            : "right center",
+                        transformStyle: "preserve-3d",
+                      }}
+                      className="relative flex min-h-[38vh] min-w-0 flex-col items-center justify-center bg-[linear-gradient(120deg,_#e8d5d0_0%,_#fffdf9_4%,_#fffaf7_100%)] px-3 py-4 min-[480px]:min-h-[68vh] min-[480px]:px-4 min-[480px]:py-6"
+                    >
+                      <div className="pointer-events-none absolute inset-2 rounded-lg border border-[#ead8d2] sm:inset-4" />
+                      {albumMedia[selectedAlbumMedia + 1] ? (
+                        <>
+                          <div className="relative flex min-h-[32vh] w-full flex-1 items-center justify-center min-[480px]:min-h-0">
+                            {albumMedia[selectedAlbumMedia + 1].type ===
+                            "image" ? (
+                              <img
+                                src={albumMedia[selectedAlbumMedia + 1].url}
+                                alt="Another memory from Eliora's baptism"
+                                className="h-auto max-h-[42vh] w-full max-w-[min(100%,520px)] rounded-md object-contain shadow-[0_8px_24px_rgba(64,35,44,0.22)] min-[480px]:max-h-[62vh]"
+                              />
+                            ) : (
+                              <video
+                                src={albumMedia[selectedAlbumMedia + 1].url}
+                                controls
+                                playsInline
+                                className="h-auto max-h-[42vh] w-full max-w-[min(100%,520px)] rounded-md bg-black object-contain shadow-[0_8px_24px_rgba(64,35,44,0.22)] min-[480px]:max-h-[62vh]"
+                              />
+                            )}
+                          </div>
+                          <p className="relative mt-2 font-serif text-xs italic text-[#b0788b] sm:mt-3 sm:text-base">
+                            A memory made with love ♡
+                          </p>
+                        </>
+                      ) : (
+                        <div className="relative flex min-h-[28vh] w-full flex-1 flex-col items-center justify-center px-4 text-center sm:min-h-0">
+                          <Heart
+                            size={28}
+                            fill="currentColor"
+                            className="text-[#c88ba0]"
+                          />
+                          <p className="mt-4 font-serif text-xl text-[#8f5269]">
+                            More memories soon
+                          </p>
+                          <p className="mt-2 text-sm leading-6 text-[#a57887]">
+                            Add another photo to fill this page with love.
+                          </p>
+                        </div>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              <div className="relative z-40 mt-4 flex w-full max-w-2xl items-center justify-between gap-1 rounded-2xl border border-white/15 bg-[#24151d]/95 p-2 shadow-2xl backdrop-blur-xl sm:mt-5 sm:gap-3 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
+                <button
+                  type="button"
+                  disabled={albumMedia.length < 2}
+                  onClick={() => {
+                    setAlbumPageDirection(-1);
+                    const spreadCount = Math.ceil(albumMedia.length / 2);
+                    const currentSpread = Math.floor(selectedAlbumMedia / 2);
+                    const previousSpread =
+                      (currentSpread - 1 + spreadCount) % spreadCount;
+                    setSelectedAlbumMedia(previousSpread * 2);
+                  }}
+                  className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1 rounded-full border border-white/20 bg-white/10 px-3 text-xs text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-30 sm:min-h-11 sm:gap-2 sm:px-5 sm:text-sm"
+                >
+                  <ChevronLeft size={16} />
+                  <span className="sm:hidden">Prev</span>
+                  <span className="hidden sm:inline">Previous page</span>
+                </button>
+                <a
+                  href={albumMedia[selectedAlbumMedia].url}
+                  download={`eliora-memory-${selectedAlbumMedia + 1}.jpg`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(event) => event.stopPropagation()}
+                  className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1 rounded-full px-2 text-xs text-[#f3bfd0] transition hover:text-white sm:gap-2 sm:px-3 sm:text-sm"
+                >
+                  <Download size={15} />{" "}
+                  <span className="hidden sm:inline">Open / save original</span>
+                  <span className="sm:hidden">Save</span>
+                </a>
+                <button
+                  type="button"
+                  disabled={albumMedia.length < 2}
+                  onClick={() => {
+                    setAlbumPageDirection(1);
+                    const spreadCount = Math.ceil(albumMedia.length / 2);
+                    const currentSpread = Math.floor(selectedAlbumMedia / 2);
+                    const nextSpread = (currentSpread + 1) % spreadCount;
+                    setSelectedAlbumMedia(nextSpread * 2);
+                  }}
+                  className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1 rounded-full bg-[#b85c7b] px-3 text-xs font-medium text-white shadow-lg shadow-black/20 transition hover:bg-[#a34d6b] disabled:cursor-not-allowed disabled:opacity-30 sm:min-h-11 sm:gap-2 sm:px-5 sm:text-sm"
+                >
+                  <span className="sm:hidden">Next</span>
+                  <span className="hidden sm:inline">Next page</span>
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              <p className="mt-3 hidden text-center text-[10px] text-white/40 sm:block">
+                Tap outside the book or press × to close
+              </p>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -3721,25 +4278,25 @@ function SectionHeading({
   description: string;
 }) {
   return (
-    <div className="mx-auto max-w-2xl text-center">
-      <p className="text-xs uppercase tracking-[0.35em] text-[#b9788d]">
+    <div className="mx-auto max-w-2xl px-2 text-center">
+      <p className="inline-flex items-center justify-center rounded-full border border-[#eccbd6] bg-white/75 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-[#a9657d] shadow-sm">
         {eyebrow}
       </p>
 
-      <h2 className="mt-4 font-serif text-4xl text-[#8f5269] md:text-5xl">
+      <h2 className="mt-5 font-serif text-4xl font-medium leading-tight tracking-[-0.035em] text-[#85465f] sm:text-5xl md:text-[3.5rem]">
         {title}
       </h2>
 
-      <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-[#a17e8b]">
+      <p className="mx-auto mt-5 max-w-lg text-sm leading-7 text-[#987585] sm:text-[15px]">
         {description}
       </p>
 
-      <div className="mx-auto mt-6 flex items-center justify-center gap-2 text-[#d394a8]">
-        <span className="h-px w-10 bg-[#e8c5d0]" />
+      <div className="mx-auto mt-7 flex items-center justify-center gap-3 text-[#c77d97]">
+        <span className="h-px w-14 bg-gradient-to-r from-transparent via-[#dca9ba] to-[#dca9ba]" />
 
         <Heart size={12} fill="currentColor" />
 
-        <span className="h-px w-10 bg-[#e8c5d0]" />
+        <span className="h-px w-14 bg-gradient-to-r from-transparent via-[#dca9ba] to-[#dca9ba]" />
       </div>
     </div>
   );
@@ -3751,7 +4308,7 @@ function SectionHeading({
 
 function InfoPill({ icon, text }: { icon: React.ReactNode; text: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-full border border-[#edd4dc] bg-white/70 px-4 py-2 text-xs text-[#a16e81] shadow-sm">
+    <div className="flex items-center gap-2 rounded-full border border-[#eacbd6] bg-white/85 px-4 py-2.5 text-xs font-medium text-[#985c73] shadow-[0_6px_18px_rgba(143,82,105,0.08)] backdrop-blur">
       {icon}
       {text}
     </div>
@@ -3798,7 +4355,7 @@ function TimelineItem({
             whileHover={{
               scale: 1.08,
             }}
-            className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-[#fff0f4] bg-[#b85c7b] text-white shadow-lg"
+            className="flex h-12 w-12 items-center justify-center rounded-full border-4 border-[#fff0f4] bg-gradient-to-br from-[#c87994] to-[#9e4e6b] text-white shadow-[0_8px_22px_rgba(158,78,107,0.28)]"
           >
             {icon}
           </motion.div>
@@ -3838,7 +4395,7 @@ function TimelineContent({
   description: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/80 bg-white/70 p-5 shadow-sm backdrop-blur">
+    <div className="rounded-[1.4rem] border border-white/90 bg-white/85 p-5 shadow-[0_12px_30px_rgba(143,82,105,0.08)] backdrop-blur-md">
       <p className="text-xs font-medium uppercase tracking-[0.2em] text-[#b85c7b]">
         {time}
       </p>
@@ -3860,7 +4417,7 @@ function CountdownBox({ value, label }: { value: number; label: string }) {
       whileHover={{
         y: -4,
       }}
-      className="rounded-3xl border border-[#efd7df] bg-white p-5 text-center shadow-sm"
+      className="rounded-[1.65rem] border border-white bg-white/90 p-5 text-center shadow-[0_15px_40px_rgba(143,82,105,0.10)] ring-1 ring-[#f0d5df] transition-shadow hover:shadow-[0_20px_45px_rgba(143,82,105,0.16)] sm:p-6"
     >
       <motion.p
         key={value}
@@ -3906,9 +4463,9 @@ function VenueCard({
       whileHover={{
         y: -5,
       }}
-      className="flex flex-col rounded-[30px] border border-[#efdde3] bg-white p-7 shadow-md"
+      className="group flex flex-col rounded-[30px] border border-white bg-white/90 p-7 shadow-[0_18px_45px_rgba(143,82,105,0.10)] ring-1 ring-[#f0d9e2] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_55px_rgba(143,82,105,0.16)] sm:p-8"
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#fce5ec] text-[#b85c7b]">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#fff0f5] to-[#f5d5e0] text-[#a75270] shadow-inner ring-1 ring-[#f0d2dd] transition-transform duration-300 group-hover:scale-105">
         {icon}
       </div>
 
