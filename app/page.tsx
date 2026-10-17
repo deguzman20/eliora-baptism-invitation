@@ -33,6 +33,9 @@ import {
   ChevronRight,
   Church,
   Clock3,
+  Gift,
+  Baby,
+  BookHeart,
   Heart,
   MapPin,
   MessageCircleHeart,
@@ -1429,6 +1432,107 @@ export default function Home() {
                 align="left"
               />
             </div>
+          </section>
+
+          {/* GIFT GUIDE FOR GODPARENTS */}
+
+          <section
+            id="gift-guide"
+            className="relative overflow-hidden bg-[#fffaf8] px-5 py-20 sm:px-6 sm:py-24 lg:py-28"
+          >
+            <div className="pointer-events-none absolute -left-20 top-20 h-52 w-52 rounded-full bg-[#fce5ec]/60 blur-3xl" />
+            <div className="pointer-events-none absolute -right-20 bottom-10 h-56 w-56 rounded-full bg-[#fff0f4] blur-3xl" />
+
+            <Reveal>
+              <SectionHeading
+                eyebrow="A little something from the heart"
+                title="Gift Guide"
+                description="Your presence, love, and prayers are already precious gifts. For our dear Ninongs and Ninangs who wish to give Eliora a little something, here are a few thoughtful ideas."
+              />
+            </Reveal>
+
+            <div className="relative z-10 mx-auto mt-12 grid max-w-5xl grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                {
+                  icon: <Baby size={25} strokeWidth={1.6} />,
+                  title: "Baby Essentials",
+                  description:
+                    "Baby clothes, blankets, shoes, and everyday essentials for Eliora's little milestones.",
+                  note: "Something useful",
+                },
+                {
+                  icon: <BookHeart size={25} strokeWidth={1.6} />,
+                  title: "Meaningful Keepsakes",
+                  description:
+                    "A children's Bible, rosary, cross pendant, or a special keepsake to remember her baptism.",
+                  note: "Something memorable",
+                },
+                {
+                  icon: <Gift size={25} strokeWidth={1.6} />,
+                  title: "A Gift for Her Future",
+                  description:
+                    "A monetary gift or savings contribution to help with Eliora's needs as she grows.",
+                  note: "Something thoughtful",
+                },
+              ].map((item, index) => (
+                <Reveal key={item.title} delay={index * 0.1}>
+                  <motion.div
+                    whileHover={{ y: -4 }}
+                    transition={{ duration: 0.2 }}
+                    className="group h-full rounded-[1.75rem] border border-[#f0d7e0] bg-white/90 p-6 shadow-[0_12px_35px_rgba(184,92,123,0.07)] transition-shadow hover:shadow-[0_18px_40px_rgba(184,92,123,0.12)] sm:p-7"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#fff0f4] text-[#b85c7b] transition-colors group-hover:bg-[#fce5ec]">
+                        {item.icon}
+                      </div>
+
+                      <span className="rounded-full border border-[#f0d7e0] bg-[#fffaf8] px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-[#b85c7b]">
+                        {item.note}
+                      </span>
+                    </div>
+
+                    <h3 className="mt-6 font-serif text-xl text-[#8f5269] sm:text-2xl">
+                      {item.title}
+                    </h3>
+
+                    <p className="mt-3 text-sm leading-7 text-[#9c7483]">
+                      {item.description}
+                    </p>
+
+                    <div className="mt-6 h-px w-full bg-gradient-to-r from-[#edcbd7] via-[#f8e8ee] to-transparent" />
+
+                    <p className="mt-4 text-xs italic leading-6 text-[#b18596]">
+                      Chosen with love, treasured forever.
+                    </p>
+                  </motion.div>
+                </Reveal>
+              ))}
+            </div>
+
+            <Reveal>
+              <div className="relative z-10 mx-auto mt-8 max-w-5xl overflow-hidden rounded-[1.75rem] border border-[#edcbd7] bg-gradient-to-br from-[#fff0f4] via-[#fffaf8] to-[#fce5ec] px-6 py-8 text-center sm:px-10 sm:py-10">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#edcbd7] bg-white/80 text-[#b85c7b]">
+                  <Heart size={21} strokeWidth={1.6} />
+                </div>
+
+                <h3 className="mt-4 font-serif text-xl text-[#8f5269] sm:text-2xl">
+                  A Gentle Reminder
+                </h3>
+
+                <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-[#9c7483] sm:text-base">
+                  Please know that gifts are entirely optional. Your presence,
+                  prayers, and love as Eliora's godparents mean more to our
+                  family than words can express.
+                </p>
+
+                <p className="mt-5 font-serif text-lg italic text-[#b85c7b]">
+                  With love and gratitude,
+                </p>
+                <p className="mt-1 text-sm font-medium tracking-wide text-[#8f5269]">
+                  The De Guzman Family ♡
+                </p>
+              </div>
+            </Reveal>
           </section>
 
           {/* COUNTDOWN */}
