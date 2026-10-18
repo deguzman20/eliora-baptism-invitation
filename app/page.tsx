@@ -137,7 +137,7 @@ type GalleryImage = {
 };
 
 type AlbumMedia = {
-  thumbnailUrl: string | undefined;
+  thumbnailUrl?: string | undefined;
   id: string;
   url: string;
   name: string;
