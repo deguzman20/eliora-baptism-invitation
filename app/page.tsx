@@ -35,9 +35,14 @@ import {
   Clock3,
   Gift,
   Baby,
+  Bot,
   BookHeart,
   Heart,
   MapPin,
+  Maximize2,
+  Minimize2,
+  Minus,
+  MessageCircle,
   MessageCircleHeart,
   PartyPopper,
   RotateCcw,
@@ -1006,7 +1011,7 @@ export default function Home() {
           }}
           onClick={toggleMusic}
           aria-label="Toggle music"
-          className="fixed bottom-5 right-5 z-[90] flex h-12 w-12 items-center justify-center rounded-full border border-white/70 bg-white/80 text-[#b85c7b] shadow-xl backdrop-blur-md"
+          className="fixed bottom-24 right-4 z-[170] flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white/95 text-[#b85c7b] shadow-xl backdrop-blur-md sm:bottom-24 sm:right-6"
         >
           {isMusicPlaying ? <Volume2 size={19} /> : <VolumeX size={19} />}
 
@@ -3082,17 +3087,18 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* SHARED ALBUM VIEWER — FULLSCREEN PAGE-TURN BOOK */}
+      {/* SHARED ALBUM VIEWER — SINGLE PAGE MEMORY BOOK */}
       <AnimatePresence>
         {selectedAlbumMedia !== null && albumMedia[selectedAlbumMedia] && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto overflow-x-hidden bg-[#24151d]/95 p-2 pb-6 backdrop-blur-xl sm:items-center sm:p-6"
+            className="fixed inset-0 z-[130] flex items-center justify-center overflow-y-auto bg-[#24151d]/95 p-3 backdrop-blur-xl sm:p-6"
             onClick={() => setSelectedAlbumMedia(null)}
           >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(184,92,123,0.22)_0%,_transparent_68%)]" />
+
             <button
               type="button"
               aria-label="Close album viewer"
@@ -3103,177 +3109,632 @@ export default function Home() {
             </button>
 
             <div
-              className="relative z-10 my-2 flex w-full max-w-7xl flex-col items-center pb-3 sm:my-0 sm:pb-0"
+              className="relative z-10 flex w-full max-w-4xl flex-col items-center py-12 sm:py-5"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="mb-3 max-w-[90vw] text-center sm:mb-5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-[#f3bfd0] sm:text-xs">
+              <div className="mb-5 mt-12 text-center">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#f3bfd0] sm:text-xs">
                   Eliora Faye's Baptism
                 </p>
-                <h2 className="mt-1 font-serif text-xl text-[#fff5f8] sm:text-3xl">
+                <h2 className="mt-1 font-serif text-2xl text-[#fff5f8] sm:text-3xl">
                   Our Memory Book
                 </h2>
-                <p className="mt-1 text-[10px] text-white/55 sm:text-xs">
-                  Two memories on every spread · turn the pages to revisit every
-                  little moment
+                <p className="mt-2 text-xs text-white/55">
+                  One memory at a time · turn the page to continue
                 </p>
               </div>
 
-              {/* The open book */}
               <div
-                className="relative w-full max-w-6xl rounded-[1.1rem] bg-[#6d3d50] p-[4px] shadow-[0_30px_100px_rgba(0,0,0,0.5)] sm:rounded-[2rem] sm:p-2"
-                style={{ perspective: "1800px" }}
+                className="w-full rounded-[1.2rem] bg-[#6d3d50] p-2 shadow-[0_30px_100px_rgba(0,0,0,0.5)] sm:rounded-[2rem] sm:p-3"
+                style={{ perspective: "1600px" }}
               >
-                <div className="relative grid grid-cols-1 overflow-hidden rounded-[0.85rem] bg-[#fff9f4] min-[480px]:grid-cols-2 min-[480px]:rounded-[1.5rem]">
-                  {/* Left page — first photo in this spread */}
-                  <div className="relative flex min-h-[38vh] min-w-0 flex-col items-center justify-center overflow-hidden border-b border-[#ead7d0] bg-[linear-gradient(135deg,_#fffdf9_0%,_#f8e9e8_100%)] px-3 py-4 min-[480px]:min-h-[68vh] min-[480px]:border-b-0 min-[480px]:border-r min-[480px]:px-4 min-[480px]:py-6">
-                    <div className="pointer-events-none absolute inset-2 rounded-lg border border-[#ead8d2] sm:inset-4" />
-                    <div className="relative flex min-h-[32vh] w-full flex-1 items-center justify-center min-[480px]:min-h-0">
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.div
+                    key={albumMedia[selectedAlbumMedia].id}
+                    initial={{
+                      rotateY: albumPageDirection === 1 ? 75 : -75,
+                      opacity: 0.35,
+                    }}
+                    animate={{ rotateY: 0, opacity: 1 }}
+                    exit={{
+                      rotateY: albumPageDirection === 1 ? -75 : 75,
+                      opacity: 0.3,
+                    }}
+                    transition={{ duration: 0.48, ease: [0.22, 0.7, 0.2, 1] }}
+                    style={{
+                      transformOrigin:
+                        albumPageDirection === 1
+                          ? "left center"
+                          : "right center",
+                      transformStyle: "preserve-3d",
+                    }}
+                    className="relative flex min-h-[58vh] flex-col items-center overflow-hidden rounded-lg border border-[#ead8d2] bg-[linear-gradient(135deg,_#fffdf9_0%,_#fff5f3_55%,_#f8e9e8_100%)] px-3 py-4 shadow-inner sm:min-h-[68vh] sm:rounded-2xl sm:px-8 sm:py-7"
+                  >
+                    <div className="pointer-events-none absolute inset-2 rounded-md border border-[#ead8d2] sm:inset-4" />
+
+                    <div className="relative z-10 mb-3 flex w-full items-center justify-between px-2 text-[9px] uppercase tracking-[0.2em] text-[#b0788b] sm:px-4 sm:text-[10px]">
+                      <span>Eliora's memories</span>
+                      <span>
+                        Page {selectedAlbumMedia + 1} of {albumMedia.length}
+                      </span>
+                    </div>
+
+                    <div className="relative z-10 flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
                       {albumMedia[selectedAlbumMedia].type === "image" ? (
                         <img
                           src={albumMedia[selectedAlbumMedia].url}
                           alt="Memory from Eliora's baptism"
-                          className="h-auto max-h-[42vh] w-full max-w-[min(100%,520px)] rounded-md object-contain shadow-[0_8px_24px_rgba(64,35,44,0.22)] min-[480px]:max-h-[62vh]"
+                          className="max-h-[43vh] w-full rounded-md object-contain shadow-[0_8px_24px_rgba(64,35,44,0.2)] sm:max-h-[53vh]"
                         />
                       ) : (
                         <video
+                          key={albumMedia[selectedAlbumMedia].url}
                           src={albumMedia[selectedAlbumMedia].url}
+                          poster={albumMedia[selectedAlbumMedia].thumbnailUrl}
                           controls
                           playsInline
-                          className="h-auto max-h-[42vh] w-full max-w-[min(100%,520px)] rounded-md bg-black object-contain shadow-[0_8px_24px_rgba(64,35,44,0.22)] min-[480px]:max-h-[62vh]"
+                          preload="metadata"
+                          className="max-h-[43vh] w-full rounded-md bg-black object-contain shadow-[0_8px_24px_rgba(64,35,44,0.2)] sm:max-h-[53vh]"
                         />
                       )}
                     </div>
-                    <p className="relative mt-2 font-serif text-xs italic text-[#b0788b] sm:mt-3 sm:text-base">
-                      A little moment to treasure ♡
-                    </p>
-                  </div>
 
-                  {/* Right page — second photo in the same spread */}
-                  <AnimatePresence mode="wait" initial={false}>
-                    <motion.div
-                      key={
-                        albumMedia[selectedAlbumMedia + 1]?.id ??
-                        albumMedia[selectedAlbumMedia].id
-                      }
-                      initial={{
-                        rotateY: albumPageDirection === 1 ? 78 : -78,
-                        opacity: 0.55,
-                      }}
-                      animate={{ rotateY: 0, opacity: 1 }}
-                      exit={{
-                        rotateY: albumPageDirection === 1 ? -72 : 72,
-                        opacity: 0.45,
-                      }}
-                      transition={{ duration: 0.58, ease: [0.22, 0.7, 0.2, 1] }}
-                      style={{
-                        transformOrigin:
-                          albumPageDirection === 1
-                            ? "left center"
-                            : "right center",
-                        transformStyle: "preserve-3d",
-                      }}
-                      className="relative flex min-h-[38vh] min-w-0 flex-col items-center justify-center bg-[linear-gradient(120deg,_#e8d5d0_0%,_#fffdf9_4%,_#fffaf7_100%)] px-3 py-4 min-[480px]:min-h-[68vh] min-[480px]:px-4 min-[480px]:py-6"
-                    >
-                      <div className="pointer-events-none absolute inset-2 rounded-lg border border-[#ead8d2] sm:inset-4" />
-                      {albumMedia[selectedAlbumMedia + 1] ? (
-                        <>
-                          <div className="relative flex min-h-[32vh] w-full flex-1 items-center justify-center min-[480px]:min-h-0">
-                            {albumMedia[selectedAlbumMedia + 1].type ===
-                            "image" ? (
-                              <img
-                                src={albumMedia[selectedAlbumMedia + 1].url}
-                                alt="Another memory from Eliora's baptism"
-                                className="h-auto max-h-[42vh] w-full max-w-[min(100%,520px)] rounded-md object-contain shadow-[0_8px_24px_rgba(64,35,44,0.22)] min-[480px]:max-h-[62vh]"
-                              />
-                            ) : (
-                              <video
-                                src={albumMedia[selectedAlbumMedia + 1].url}
-                                controls
-                                playsInline
-                                className="h-auto max-h-[42vh] w-full max-w-[min(100%,520px)] rounded-md bg-black object-contain shadow-[0_8px_24px_rgba(64,35,44,0.22)] min-[480px]:max-h-[62vh]"
-                              />
-                            )}
-                          </div>
-                          <p className="relative mt-2 font-serif text-xs italic text-[#b0788b] sm:mt-3 sm:text-base">
-                            A memory made with love ♡
-                          </p>
-                        </>
-                      ) : (
-                        <div className="relative flex min-h-[28vh] w-full flex-1 flex-col items-center justify-center px-4 text-center sm:min-h-0">
-                          <Heart
-                            size={28}
-                            fill="currentColor"
-                            className="text-[#c88ba0]"
-                          />
-                          <p className="mt-4 font-serif text-xl text-[#8f5269]">
-                            More memories soon
-                          </p>
-                          <p className="mt-2 text-sm leading-6 text-[#a57887]">
-                            Add another photo to fill this page with love.
-                          </p>
-                        </div>
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
+                    <p className="relative z-10 mt-4 text-center font-serif text-sm italic text-[#b0788b] sm:mt-5 sm:text-lg">
+                      {albumMedia[selectedAlbumMedia].type === "video"
+                        ? "A little moment to treasure ♡"
+                        : "A memory made with love ♡"}
+                    </p>
+                    <div className="relative z-10 mt-3 h-px w-16 bg-[#e5c4cf]" />
+                    <p className="relative z-10 mt-2 font-serif text-xs text-[#b0788b]">
+                      ♡
+                    </p>
+                  </motion.div>
+                </AnimatePresence>
               </div>
 
-              <div className="relative z-40 mt-4 flex w-full max-w-2xl items-center justify-between gap-1 rounded-2xl border border-white/15 bg-[#24151d]/95 p-2 shadow-2xl backdrop-blur-xl sm:mt-5 sm:gap-3 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
+              <div className="mt-5 flex w-full max-w-lg items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/5 p-2 backdrop-blur-sm sm:gap-4 sm:border-0 sm:bg-transparent">
                 <button
                   type="button"
-                  disabled={albumMedia.length < 2}
+                  disabled={selectedAlbumMedia === 0}
                   onClick={() => {
                     setAlbumPageDirection(-1);
-                    const spreadCount = Math.ceil(albumMedia.length / 2);
-                    const currentSpread = Math.floor(selectedAlbumMedia / 2);
-                    const previousSpread =
-                      (currentSpread - 1 + spreadCount) % spreadCount;
-                    setSelectedAlbumMedia(previousSpread * 2);
+                    setSelectedAlbumMedia((current) =>
+                      current === null ? 0 : Math.max(0, current - 1)
+                    );
                   }}
-                  className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1 rounded-full border border-white/20 bg-white/10 px-3 text-xs text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-30 sm:min-h-11 sm:gap-2 sm:px-5 sm:text-sm"
+                  className="inline-flex min-h-11 items-center justify-center gap-1 rounded-full border border-white/20 bg-white/10 px-4 text-xs text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-30 sm:gap-2 sm:px-5 sm:text-sm"
                 >
-                  <ChevronLeft size={16} />
-                  <span className="sm:hidden">Prev</span>
-                  <span className="hidden sm:inline">Previous page</span>
+                  <ChevronLeft size={17} />
+                  <span>Previous</span>
                 </button>
+
                 <a
                   href={albumMedia[selectedAlbumMedia].url}
-                  download={`eliora-memory-${selectedAlbumMedia + 1}.jpg`}
+                  download={`eliora-memory-${selectedAlbumMedia + 1}`}
                   target="_blank"
                   rel="noreferrer"
                   onClick={(event) => event.stopPropagation()}
-                  className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1 rounded-full px-2 text-xs text-[#f3bfd0] transition hover:text-white sm:gap-2 sm:px-3 sm:text-sm"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 px-2 text-xs text-[#f3bfd0] transition hover:text-white sm:px-3 sm:text-sm"
                 >
-                  <Download size={15} />{" "}
-                  <span className="hidden sm:inline">Open / save original</span>
+                  <Download size={16} />
+                  <span className="hidden sm:inline">Open / save</span>
                   <span className="sm:hidden">Save</span>
                 </a>
+
                 <button
                   type="button"
-                  disabled={albumMedia.length < 2}
+                  disabled={selectedAlbumMedia === albumMedia.length - 1}
                   onClick={() => {
                     setAlbumPageDirection(1);
-                    const spreadCount = Math.ceil(albumMedia.length / 2);
-                    const currentSpread = Math.floor(selectedAlbumMedia / 2);
-                    const nextSpread = (currentSpread + 1) % spreadCount;
-                    setSelectedAlbumMedia(nextSpread * 2);
+                    setSelectedAlbumMedia((current) =>
+                      current === null
+                        ? 0
+                        : Math.min(albumMedia.length - 1, current + 1)
+                    );
                   }}
-                  className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1 rounded-full bg-[#b85c7b] px-3 text-xs font-medium text-white shadow-lg shadow-black/20 transition hover:bg-[#a34d6b] disabled:cursor-not-allowed disabled:opacity-30 sm:min-h-11 sm:gap-2 sm:px-5 sm:text-sm"
+                  className="inline-flex min-h-11 items-center justify-center gap-1 rounded-full bg-[#b85c7b] px-4 text-xs font-medium text-white shadow-lg transition hover:bg-[#a34d6b] disabled:cursor-not-allowed disabled:opacity-30 sm:gap-2 sm:px-5 sm:text-sm"
                 >
-                  <span className="sm:hidden">Next</span>
-                  <span className="hidden sm:inline">Next page</span>
-                  <ChevronRight size={16} />
+                  <span>Next</span>
+                  <ChevronRight size={17} />
                 </button>
               </div>
-              <p className="mt-3 hidden text-center text-[10px] text-white/40 sm:block">
-                Tap outside the book or press × to close
+
+              <p className="mt-3 text-center text-[10px] text-white/40">
+                {selectedAlbumMedia + 1} / {albumMedia.length} memories
               </p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* MESSENGER-STYLE BAPTISM AI CHAT */}
+      {opened && <BaptismAIChat />}
     </main>
+  );
+}
+
+/* =========================================================
+   MESSENGER-STYLE BAPTISM AI CHAT
+========================================================= */
+
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+type ChatReservationDraft = {
+  name: string;
+  attendance: "yes" | "no";
+  guests: number;
+  message: string;
+};
+
+// Render Markdown-style links and plain URLs as safe, clickable links.
+function renderChatContent(content: string) {
+  const linkPattern =
+    /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s<>]+)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = linkPattern.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(content.slice(lastIndex, match.index));
+    }
+
+    const markdownLabel = match[1];
+    const markdownUrl = match[2];
+    let rawUrl = match[3];
+    let trailing = "";
+
+    if (rawUrl) {
+      const punctuation = rawUrl.match(/[.,!?;:]+$/);
+      if (punctuation) {
+        trailing = punctuation[0];
+        rawUrl = rawUrl.slice(0, -trailing.length);
+      }
+    }
+
+    const href = markdownUrl ?? rawUrl;
+    const label = markdownLabel ?? rawUrl;
+
+    if (href && /^https?:\/\//i.test(href)) {
+      parts.push(
+        <a
+          key={`chat-link-${key++}`}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          className="font-semibold text-[#b83268] underline decoration-[#d99bb1] underline-offset-2 break-all hover:text-[#8f2450]"
+        >
+          {label}
+        </a>
+      );
+      if (trailing) parts.push(trailing);
+    } else {
+      parts.push(match[0]);
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < content.length) {
+    parts.push(content.slice(lastIndex));
+  }
+
+  return parts;
+}
+
+function BaptismAIChat() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
+  const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState("");
+  const [reservationDraft, setReservationDraft] =
+    useState<ChatReservationDraft | null>(null);
+  const [isConfirmingReservation, setIsConfirmingReservation] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: "assistant",
+      content:
+        "Hi there! 💗 I'm Eliora's Baptism Assistant. Ask me about the date, venue, dress code, RSVP, or celebration details.",
+    },
+  ]);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (isOpen && !isMinimized) {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    }
+  }, [messages, isOpen, isMinimized, isMaximized]);
+
+  const sendMessage = async (textOverride?: string) => {
+    const text = (textOverride ?? input).trim();
+    if (!text || isSending) return;
+
+    const nextMessages: ChatMessage[] = [
+      ...messages,
+      { role: "user", content: text },
+    ];
+    setMessages(nextMessages);
+    setInput("");
+    setError("");
+    setIsSending(true);
+
+    try {
+      // Calls the Next.js API route in app/api/chat/route.ts.
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          history: nextMessages
+            .slice(0, -1)
+            .slice(-10)
+            .map((message) => ({
+              role: message.role,
+              content: message.content,
+            })),
+        }),
+      });
+
+      const data = (await response.json()) as {
+        reply?: string;
+        error?: string;
+        reservationDraft?: ChatReservationDraft | null;
+      };
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Sorry, I couldn't answer right now. Please try again."
+        );
+      }
+      if (!data.reply)
+        throw new Error(
+          "The assistant returned an empty response. Please try again."
+        );
+      setMessages((current) => [
+        ...current,
+        { role: "assistant", content: data.reply! },
+      ]);
+      setReservationDraft(data.reservationDraft ?? null);
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Something went wrong. Please try again.";
+      setError(message);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const confirmReservation = async () => {
+    if (!reservationDraft || isConfirmingReservation) return;
+    setIsConfirmingReservation(true);
+    setError("");
+    try {
+      const response = await fetch("/api/reservations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...reservationDraft, confirmed: true }),
+      });
+      const data = (await response.json()) as {
+        success?: boolean;
+        error?: string;
+      };
+      if (!response.ok || !data.success)
+        throw new Error(data.error || "Reservation could not be saved.");
+      setMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          content: `Reservation confirmed and saved! 💗\n\nName: ${
+            reservationDraft.name
+          }\nAttendance: ${
+            reservationDraft.attendance === "yes"
+              ? "Attending"
+              : "Not attending"
+          }\nGuests: ${
+            reservationDraft.guests
+          }\n\nThank you for letting us know. We look forward to celebrating with you!`,
+        },
+      ]);
+      setReservationDraft(null);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Could not save the reservation. Please try again."
+      );
+    } finally {
+      setIsConfirmingReservation(false);
+    }
+  };
+
+  const suggestedQuestions = [
+    "I want to make a reservation",
+    "When is the baptism?",
+    "What is the dress code?",
+    "Where is the reception?",
+  ];
+
+  return (
+    <div className="fixed bottom-4 right-4 z-[160] sm:bottom-6 sm:right-6">
+      {!isOpen ? (
+        <motion.button
+          type="button"
+          initial={{ opacity: 0, y: 12, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          whileHover={{ y: -3, scale: 1.03 }}
+          whileTap={{ scale: 0.96 }}
+          onClick={() => {
+            setIsOpen(true);
+            setIsMinimized(false);
+          }}
+          aria-label="Open Eliora's baptism assistant"
+          className="flex min-h-14 items-center gap-3 rounded-full border border-white/80 bg-[#b85c7b] px-4 py-3 text-left text-white shadow-[0_12px_35px_rgba(143,82,105,0.32)] transition hover:bg-[#a34d6b] sm:px-5"
+        >
+          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20">
+            <MessageCircle size={21} />
+            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#b85c7b] bg-emerald-300" />
+          </span>
+          <span className="pr-1">
+            <span className="block text-sm font-semibold">Ask Eliora's AI</span>
+            <span className="mt-0.5 block text-[11px] text-white/80">
+              We're here to help ♡
+            </span>
+          </span>
+        </motion.button>
+      ) : (
+        <motion.section
+          initial={{ opacity: 0, y: 18, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.2 }}
+          aria-label="Eliora's Baptism Assistant chat"
+          className={[
+            "flex flex-col overflow-hidden border border-[#f0d3de] bg-[#fffafc] shadow-[0_24px_80px_rgba(83,40,57,0.25)]",
+            isMinimized
+              ? "h-[68px] w-[min(360px,calc(100vw-2rem))] rounded-2xl"
+              : isMaximized
+              ? "fixed inset-2 h-[calc(100dvh-1rem)] w-auto rounded-2xl sm:inset-5 sm:h-[calc(100dvh-2.5rem)]"
+              : "h-[min(590px,calc(100dvh-7rem))] w-[min(380px,calc(100vw-2rem))] rounded-[1.5rem] sm:h-[min(620px,calc(100dvh-6rem))]",
+          ].join(" ")}
+        >
+          <header className="flex min-h-[68px] shrink-0 items-center gap-3 bg-gradient-to-r from-[#b85c7b] to-[#ce829b] px-4 py-3 text-white">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/40 bg-white/20">
+              <Bot size={22} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">
+                Eliora's Baptism Assistant
+              </p>
+              <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/85">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />{" "}
+                Here to help you ♡
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMinimized((value) => !value);
+                  setIsMaximized(false);
+                }}
+                aria-label={isMinimized ? "Restore chat" : "Minimize chat"}
+                title={isMinimized ? "Restore" : "Minimize"}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-white/90 transition hover:bg-white/20"
+              >
+                {isMinimized ? <Maximize2 size={16} /> : <Minus size={17} />}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMaximized((value) => !value);
+                  setIsMinimized(false);
+                }}
+                aria-label={isMaximized ? "Restore chat size" : "Maximize chat"}
+                title={isMaximized ? "Restore size" : "Maximize"}
+                className="hidden h-8 w-8 items-center justify-center rounded-full text-white/90 transition hover:bg-white/20 sm:flex"
+              >
+                {isMaximized ? (
+                  <Minimize2 size={16} />
+                ) : (
+                  <Maximize2 size={16} />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsMinimized(false);
+                  setIsMaximized(false);
+                }}
+                aria-label="Close chat"
+                title="Close"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-white/90 transition hover:bg-white/20"
+              >
+                <X size={17} />
+              </button>
+            </div>
+          </header>
+
+          {!isMinimized && (
+            <>
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4 sm:px-4">
+                <div className="mb-4 text-center">
+                  <span className="inline-flex rounded-full border border-[#f0d7e0] bg-white px-3 py-1 text-[10px] font-medium text-[#a45d77]">
+                    ELIORA FAYE · NOVEMBER 22, 2026
+                  </span>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {messages.map((message, index) => (
+                    <div
+                      key={`${message.role}-${index}`}
+                      className={`flex ${
+                        message.role === "user"
+                          ? "justify-end"
+                          : "justify-start"
+                      }`}
+                    >
+                      {message.role === "assistant" && (
+                        <span className="mr-2 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f8e5ec] text-[#b85c7b]">
+                          <Heart size={14} fill="currentColor" />
+                        </span>
+                      )}
+                      <div
+                        className={`max-w-[84%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-[13px] leading-5 ${
+                          message.role === "user"
+                            ? "rounded-br-md bg-[#b85c7b] text-white"
+                            : "rounded-bl-md border border-[#f1dce4] bg-white text-[#765061] shadow-sm"
+                        }`}
+                      >
+                        {renderChatContent(message.content)}
+                      </div>
+                    </div>
+                  ))}
+                  {reservationDraft && (
+                    <div className="ml-9 rounded-2xl border border-[#ecc6d4] bg-white p-4 text-sm text-[#765061] shadow-sm">
+                      <p className="font-semibold text-[#b85c7b]">
+                        Please confirm your reservation 💗
+                      </p>
+                      <div className="mt-3 space-y-1.5 text-xs sm:text-sm">
+                        <p>
+                          <span className="font-semibold">Name:</span>{" "}
+                          {reservationDraft.name}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Attendance:</span>{" "}
+                          {reservationDraft.attendance === "yes"
+                            ? "Attending"
+                            : "Not attending"}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Guests:</span>{" "}
+                          {reservationDraft.guests}
+                        </p>
+                        {reservationDraft.message && (
+                          <p>
+                            <span className="font-semibold">Message:</span>{" "}
+                            {reservationDraft.message}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={confirmReservation}
+                        disabled={isConfirmingReservation}
+                        className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#b85c7b] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#a34d6b] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <CheckCircle2 size={17} />{" "}
+                        {isConfirmingReservation
+                          ? "Saving reservation…"
+                          : "Confirm Reservation"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReservationDraft(null);
+                          void sendMessage(
+                            "Please help me edit my reservation details."
+                          );
+                        }}
+                        className="mt-2 w-full rounded-xl border border-[#f0d3de] px-4 py-2 text-xs font-medium text-[#a45d77] hover:bg-[#fff4f7]"
+                      >
+                        Edit details
+                      </button>
+                    </div>
+                  )}
+                  {isSending && (
+                    <div className="flex items-center gap-2 text-xs text-[#a67889]">
+                      <span className="flex gap-1 rounded-2xl bg-white px-4 py-3 shadow-sm">
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#b85c7b] [animation-delay:-0.2s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#b85c7b] [animation-delay:-0.1s]" />
+                        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#b85c7b]" />
+                      </span>
+                      Typing…
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {messages.length === 1 && (
+                  <div className="mt-5">
+                    <p className="mb-2 px-1 text-[11px] font-medium text-[#a67889]">
+                      You can ask me about:
+                    </p>
+                    <div className="flex flex-col items-start gap-2">
+                      {suggestedQuestions.map((question) => (
+                        <button
+                          key={question}
+                          type="button"
+                          onClick={() => void sendMessage(question)}
+                          disabled={isSending}
+                          className="max-w-full rounded-full border border-[#eac7d4] bg-white px-3.5 py-2 text-left text-xs text-[#a45d77] transition hover:bg-[#fff0f5] disabled:opacity-50"
+                        >
+                          {question} <span aria-hidden="true">→</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {error && (
+                <p
+                  role="alert"
+                  className="mx-3 mb-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700 sm:mx-4"
+                >
+                  {error}
+                </p>
+              )}
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void sendMessage();
+                }}
+                className="shrink-0 border-t border-[#f0dce4] bg-white p-3 sm:p-4"
+              >
+                <div className="flex items-end gap-2 rounded-2xl border border-[#edd5df] bg-[#fffafc] p-1.5 pl-3 focus-within:border-[#c77d96] focus-within:ring-2 focus-within:ring-[#f5dce5]">
+                  <textarea
+                    value={input}
+                    onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        void sendMessage();
+                      }
+                    }}
+                    rows={1}
+                    maxLength={1000}
+                    placeholder="Ask about the baptism…"
+                    aria-label="Type your question"
+                    className="max-h-24 min-h-9 min-w-0 flex-1 resize-y bg-transparent py-2 text-sm text-[#765061] outline-none placeholder:text-[#bb9aaa]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || isSending}
+                    aria-label="Send message"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#b85c7b] text-white transition hover:bg-[#a34d6b] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Send size={16} />
+                  </button>
+                </div>
+                <p className="mt-2 text-center text-[10px] text-[#b08b99]">
+                  Made with love for Eliora's special day ♡
+                </p>
+              </form>
+            </>
+          )}
+        </motion.section>
+      )}
+    </div>
   );
 }
 
