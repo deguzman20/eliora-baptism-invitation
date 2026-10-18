@@ -125,9 +125,7 @@ function parseReservationDraft(value: unknown): ReservationDraft | null {
 
 export async function POST(request: Request) {
   try {
-    // const apiKey = process.env.OPENAI_API_KEY;
-    const apiKey =
-      "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";
+    const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
       console.error("AI CHAT ERROR: OPENAI_API_KEY is missing.");
