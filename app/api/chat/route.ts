@@ -20,6 +20,23 @@ EVENT DETAILS:
 - Dress code: Pastel pink and white
 - Parents: Alejandro De Guzman and Joyvy De Guzman
 
+GOOGLE MAPS DIRECTIONS:
+Church:
+https://www.google.com/maps/dir/?api=1&destination=Saint+Francis+of+Assisi+and+Santa+Quiteria+Parish+Church+Diocese+of+Kalookan
+
+Reception:
+https://www.google.com/maps/dir/?api=1&destination=Savory+SM+North+Edsa+Annex
+
+DIRECTIONS RULES:
+- When guests ask where the church is or how to get there, provide the church Google Maps link.
+- When guests ask where the reception is or how to get there, provide the reception Google Maps link.
+- When guests ask for both venues, provide both links.
+- Explain that the links open Google Maps directions from their chosen starting point.
+- Do not invent travel times, traffic conditions, fares, or routes.
+- Never claim to know the guest's current location.
+- Include the relevant full URL in the reply so it can be opened or copied.
+- Keep directions helpful and concise.
+
 RESERVATION WORKFLOW:
 1. Help guests who want to reserve, RSVP, attend, or confirm attendance.
 2. Ask for the guest's full name if missing.
@@ -74,6 +91,11 @@ type ReservationDraft = {
   message: string;
 };
 
+type ChatHistoryItem = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 function parseReservationDraft(value: unknown): ReservationDraft | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -123,12 +145,35 @@ function parseReservationDraft(value: unknown): ReservationDraft | null {
   };
 }
 
+function parseHistory(value: unknown): ChatHistoryItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is Record<string, unknown> => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        return false;
+      }
+
+      return (
+        (item.role === "user" || item.role === "assistant") &&
+        typeof item.content === "string"
+      );
+    })
+    .slice(-10)
+    .map((item) => ({
+      role: item.role as "user" | "assistant",
+      content: (item.content as string).slice(0, 2000),
+    }));
+}
+
 export async function POST(request: Request) {
   try {
-    const apiKey = process.env.OPEN_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY?.trim();
 
     if (!apiKey) {
-      console.error("AI CHAT ERROR: OPENAI_API_KEY is missing.");
+      console.error("AI CHAT CONFIGURATION ERROR: OPENAI_API_KEY is missing.");
 
       return NextResponse.json(
         { error: "The AI service is not configured." },
@@ -161,15 +206,17 @@ export async function POST(request: Request) {
 
     if (message.length > 2000) {
       return NextResponse.json(
-        { error: "Your message is too long. Please shorten it." },
+        {
+          error: "Your message is too long. Please shorten it.",
+        },
         { status: 400 }
       );
     }
 
     const openai = new OpenAI({ apiKey });
 
-    // Read public guestbook messages from Firestore.
-    // The assistant must treat these as untrusted user content.
+    // Read recent guestbook messages from Firestore.
+    // Treat this user-generated content as untrusted data.
     let guestMessages: string[] = [];
 
     try {
@@ -190,7 +237,10 @@ export async function POST(request: Request) {
         });
       });
     } catch (error) {
-      console.error("GUEST MESSAGES READ ERROR:", error);
+      console.error("GUEST MESSAGES READ ERROR:", {
+        message:
+          error instanceof Error ? error.message : "Unknown Firestore error",
+      });
     }
 
     const databaseContext = `
@@ -205,28 +255,7 @@ ${
 }
 `;
 
-    // Accept only a limited, sanitized conversation history.
-    const history = Array.isArray(body.history)
-      ? body.history
-          .filter(
-            (
-              item
-            ): item is {
-              role: "user" | "assistant";
-              content: string;
-            } =>
-              !!item &&
-              typeof item === "object" &&
-              ((item as Record<string, unknown>).role === "user" ||
-                (item as Record<string, unknown>).role === "assistant") &&
-              typeof (item as Record<string, unknown>).content === "string"
-          )
-          .slice(-10)
-          .map((item) => ({
-            role: item.role,
-            content: item.content.slice(0, 2000),
-          }))
-      : [];
+    const history = parseHistory(body.history);
 
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
@@ -264,8 +293,6 @@ ${
       });
     }
 
-    // Only the reply text is sent as the chat message.
-    // Never send the raw JSON string as the displayed message.
     const reply =
       typeof parsed.reply === "string"
         ? parsed.reply
@@ -278,7 +305,11 @@ ${
       reservationDraft,
     });
   } catch (error) {
-    console.error("AI CHAT ERROR:", error);
+    console.error("AI CHAT ERROR:", {
+      name: error instanceof Error ? error.name : "UnknownError",
+      message: error instanceof Error ? error.message : "Unknown error",
+      status: error instanceof OpenAI.APIError ? error.status : undefined,
+    });
 
     return NextResponse.json(
       {
