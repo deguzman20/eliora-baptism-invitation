@@ -45,6 +45,7 @@ GODPARENTS (NINONG AT NINANG):
 - Jasmine Chavez
 - Dwight Yanela
 - Jesselle Caras
+- Arvie Gacuma
 
 GODPARENTS RULES:
 - When guests ask who the godparents, ninongs, or ninangs are, provide the complete list above.
