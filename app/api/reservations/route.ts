@@ -5,6 +5,11 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
 
+type ReservationResult = {
+  duplicate: boolean;
+  reservationId: string | null;
+};
+
 function normalizeFullName(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
@@ -45,7 +50,7 @@ export async function POST(request: Request) {
     const message = typeof body.message === "string" ? body.message.trim() : "";
     const confirmed = body.confirmed === true;
 
-    // Require explicit confirmation from the guest.
+    // Require explicit guest confirmation.
     if (!confirmed) {
       return NextResponse.json(
         { error: "Please confirm the reservation before saving." },
@@ -53,7 +58,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate full name.
+    // Validate the full name.
     if (name.length < 2 || name.length > 80) {
       return NextResponse.json(
         { error: "Name must be between 2 and 80 characters." },
@@ -61,14 +66,14 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!attendance || (attendance !== "yes" && attendance !== "no")) {
+    if (attendance !== "yes" && attendance !== "no") {
       return NextResponse.json(
         { error: "Invalid attendance selection." },
         { status: 400 }
       );
     }
 
-    // Validate guest count.
+    // Validate the number of guests.
     if (
       typeof guests !== "number" ||
       !Number.isInteger(guests) ||
@@ -93,60 +98,63 @@ export async function POST(request: Request) {
     const reservationsRef = adminDb.collection("reservations");
     const newReservationRef = reservationsRef.doc(reservationKey);
 
-    const result = await adminDb.runTransaction(async (transaction) => {
-      // First check the deterministic document ID.
-      const existingKeyDoc = await transaction.get(newReservationRef);
+    const result: ReservationResult = await adminDb.runTransaction(
+      async (transaction) => {
+        // Check the deterministic document ID first.
+        const existingKeyDoc = await transaction.get(newReservationRef);
 
-      if (existingKeyDoc.exists) {
+        if (existingKeyDoc.exists) {
+          return {
+            duplicate: true,
+            reservationId: null,
+          };
+        }
+
+        // Check existing records, including older documents
+        // created with automatically generated Firestore IDs.
+        const allReservations = await transaction.get(reservationsRef);
+
+        const existingReservation = allReservations.docs.find((doc) => {
+          const data = doc.data();
+
+          const existingName =
+            typeof data.name === "string"
+              ? data.name
+              : typeof data.fullName === "string"
+              ? data.fullName
+              : "";
+
+          return (
+            existingName.length > 0 &&
+            normalizeFullName(existingName) === normalizedName
+          );
+        });
+
+        if (existingReservation) {
+          return {
+            duplicate: true,
+            reservationId: null,
+          };
+        }
+
+        // Save the reservation only if no duplicate was found.
+        transaction.create(newReservationRef, {
+          name,
+          normalizedName,
+          attendance,
+          guests,
+          message,
+          source: "chatbot",
+          status: "confirmed",
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
         return {
-          duplicate: true,
-          reservationId: null,
+          duplicate: false,
+          reservationId: newReservationRef.id,
         };
       }
-
-      // Check older reservations that may have random document IDs.
-      const allReservations = await transaction.get(reservationsRef);
-
-      const existingReservation = allReservations.docs.find((doc) => {
-        const data = doc.data();
-
-        const existingName =
-          typeof data.name === "string"
-            ? data.name
-            : typeof data.fullName === "string"
-            ? data.fullName
-            : "";
-
-        return (
-          existingName.length > 0 &&
-          normalizeFullName(existingName) === normalizedName
-        );
-      });
-
-      if (existingReservation) {
-        return {
-          duplicate: true,
-          reservationId: null,
-        };
-      }
-
-      // Save only when no existing reservation has the same full name.
-      transaction.create(newReservationRef, {
-        name,
-        normalizedName,
-        attendance,
-        guests,
-        message,
-        source: "chatbot",
-        status: "confirmed",
-        createdAt: FieldValue.serverTimestamp(),
-      });
-
-      return {
-        duplicate: false,
-        reservationId: newReservationRef.id,
-      };
-    });
+    );
 
     if (result.duplicate) {
       return NextResponse.json(
