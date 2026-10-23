@@ -175,27 +175,27 @@ const GODPARENTS = [
 
 const GALLERY: GalleryImage[] = [
   {
-    src: "/eliora-faye.jpeg",
+    src: "/eliora-faye-gallery-1.jpeg",
     title: "A little blessing",
   },
   {
-    src: "/eliora-faye.jpeg",
+    src: "/eliora-faye-gallery-2.jpeg",
     title: "Sweet little Eliora",
   },
   {
-    src: "/eliora-faye.jpeg",
+    src: "/eliora-faye-gallery-3.jpeg",
     title: "Loved beyond measure",
   },
   {
-    src: "/eliora-faye.jpeg",
+    src: "/eliora-faye-gallery-4.png",
     title: "A beautiful little moment",
   },
   {
-    src: "/eliora-faye.jpeg",
+    src: "/eliora-faye-gallery-5.png",
     title: "Our precious blessing",
   },
   {
-    src: "/eliora-faye.jpeg",
+    src: "/eliora-faye-gallery-6.png",
     title: "Surrounded by love",
   },
 ];
@@ -1358,7 +1358,7 @@ export default function Home() {
                     <div className="absolute -inset-5 rounded-[35px] bg-[#fce5ec]" />
 
                     <img
-                      src="/eliora-faye.jpeg"
+                      src="/eliora-faye-second-image.png"
                       alt="Eliora Faye"
                       className="relative aspect-[4/5] w-full rounded-[30px] border-[7px] border-white object-cover shadow-[0_28px_60px_rgba(143,82,105,0.18)] ring-1 ring-[#eed2dc]"
                     />
