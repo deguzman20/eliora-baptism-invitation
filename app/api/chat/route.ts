@@ -268,7 +268,7 @@ function getDuplicateReply(text: string): string {
 
 export async function POST(request: Request) {
   try {
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY?.trim();
 
     if (!apiKey) {
       console.error("AI CHAT CONFIGURATION ERROR: OPENAI_API_KEY is missing.");
