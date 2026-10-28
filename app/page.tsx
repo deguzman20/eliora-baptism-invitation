@@ -377,6 +377,95 @@ export default function Home() {
 
   const [isSubmittingGuestbook, setIsSubmittingGuestbook] = useState(false);
 
+  /* -------------------------------------------------------
+     PERSONALIZED THANK-YOU CARD
+  ------------------------------------------------------- */
+
+  const [thankYouRecipient, setThankYouRecipient] = useState("");
+  const [thankYouMessage, setThankYouMessage] = useState(
+    "Thank you for your love, prayers, and blessings on my baptism day. I'm so lucky to have you as part of my journey!"
+  );
+  const [thankYouCardStyle, setThankYouCardStyle] = useState<
+    "floral" | "classic"
+  >("floral");
+
+  const downloadThankYouCard = async () => {
+    const escapeXml = (value: string) =>
+      value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+    const recipient = thankYouRecipient.trim() || "Our Dear Guest";
+    const background = thankYouCardStyle === "floral" ? "#fff5f7" : "#fffaf2";
+    const accent = thankYouCardStyle === "floral" ? "#b85c7b" : "#9a7848";
+    const messageWords = thankYouMessage.trim().split(/\s+/);
+    const lines: string[] = [];
+    let currentLine = "";
+    messageWords.forEach((word) => {
+      const candidate = currentLine ? `${currentLine} ${word}` : word;
+      if (candidate.length > 42 && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else currentLine = candidate;
+    });
+    if (currentLine) lines.push(currentLine);
+    const messageSvg = lines
+      .slice(0, 5)
+      .map(
+        (line, index) =>
+          `<text x="1050" y="490" text-anchor="middle" class="message" dy="${
+            index * 38
+          }">${escapeXml(line)}</text>`
+      )
+      .join("");
+
+    // Embed Eliora's photo into the SVG so it remains visible in the downloaded card.
+    let photoDataUrl = "";
+    try {
+      const response = await fetch("/eliora-faye.jpeg");
+      if (response.ok) {
+        const photoBlob = await response.blob();
+        photoDataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () =>
+            resolve(typeof reader.result === "string" ? reader.result : "");
+          reader.onerror = () =>
+            reject(new Error("Unable to read Eliora's photo"));
+          reader.readAsDataURL(photoBlob);
+        });
+      }
+    } catch (error) {
+      console.error(
+        "Could not embed Eliora's photo in the thank-you card:",
+        error
+      );
+    }
+
+    const photo = photoDataUrl
+      ? `<image href="${photoDataUrl}" x="105" y="155" width="550" height="690" preserveAspectRatio="xMidYMid slice" clip-path="url(#photoClip)"/>`
+      : `<rect x="105" y="155" width="550" height="690" rx="28" fill="#f7e5e9"/><text x="380" y="490" text-anchor="middle" font-size="28" fill="${accent}">Eliora Faye</text><text x="380" y="530" text-anchor="middle" font-size="18" fill="#9c7483">Photo unavailable</text>`;
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1600" height="1000" viewBox="0 0 1600 1000"><defs><clipPath id="photoClip"><rect x="105" y="155" width="550" height="690" rx="28"/></clipPath></defs><rect width="1600" height="1000" fill="${background}"/><rect x="28" y="28" width="1544" height="944" rx="34" fill="none" stroke="#e8c5d1" stroke-width="3"/><rect x="48" y="48" width="1504" height="904" rx="26" fill="none" stroke="#e8c5d1" stroke-width="1.5"/><g fill="${accent}" opacity=".7"><circle cx="78" cy="82" r="8"/><circle cx="1522" cy="82" r="8"/><circle cx="78" cy="918" r="8"/><circle cx="1522" cy="918" r="8"/></g><rect x="91" y="141" width="578" height="718" rx="38" fill="#ffffff" stroke="#ead0d9" stroke-width="10"/>${photo}<text x="1050" y="190" text-anchor="middle" font-size="25" letter-spacing="7" fill="${accent}">A LITTLE BLESSING</text><text x="1050" y="290" text-anchor="middle" font-family="Georgia,serif" font-size="58" fill="${accent}">Thank You${
+      thankYouRecipient.trim() ? ", " + escapeXml(recipient) : "!"
+    }</text><text x="1050" y="350" text-anchor="middle" font-family="Georgia,serif" font-size="30" font-style="italic" fill="#9c7483">For being part of my special day</text><path d="M1050 438 C1038 428 990 397 990 375 C990 350 1023 344 1050 376 C1077 344 1110 350 1110 375 C1110 397 1062 428 1050 438 Z" fill="${accent}" opacity=".75"/><g font-family="Arial,sans-serif" font-size="24" fill="#765466">${messageSvg}</g><text x="1050" y="720" text-anchor="middle" font-family="Georgia,serif" font-size="29" fill="#765466">With all my love,</text><text x="1050" y="785" text-anchor="middle" font-family="Georgia,serif" font-size="53" font-style="italic" fill="${accent}">Eliora Faye</text><text x="1050" y="830" text-anchor="middle" font-size="19" letter-spacing="5" fill="#b08b98">DE GUZMAN FAMILY</text><text x="1050" y="885" text-anchor="middle" font-size="21" fill="#9c7483">November 22, 2026 · 10:30 AM</text></svg>`;
+    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `eliora-faye-thank-you-${
+      recipient
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "guest"
+    }.svg`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const [guestErrors, setGuestErrors] = useState({
     name: "",
     message: "",
@@ -2971,6 +3060,164 @@ export default function Home() {
                       </div>
                     </div>
 
+                    <div className="mt-8 rounded-3xl border border-[#efd2dc] bg-white/85 p-5 text-left shadow-sm md:p-6">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#fff0f4] text-[#b85c7b]">
+                          <Heart size={20} fill="currentColor" />
+                        </div>
+                        <div>
+                          <h3 className="font-serif text-xl text-[#8f5269]">
+                            Create a Thank-You Card
+                          </h3>
+                          <p className="mt-1 text-xs leading-5 text-[#b08b98]">
+                            Make a little keepsake for someone who shared in
+                            Eliora’s special day.
+                          </p>
+                        </div>
+                      </div>
+
+                      <label
+                        htmlFor="thank-you-recipient"
+                        className="mt-5 block text-xs font-semibold uppercase tracking-wider text-[#a16e80]"
+                      >
+                        Recipient name (optional)
+                      </label>
+                      <input
+                        id="thank-you-recipient"
+                        value={thankYouRecipient}
+                        onChange={(event) =>
+                          setThankYouRecipient(event.target.value)
+                        }
+                        maxLength={50}
+                        placeholder="e.g. Ninong Mark"
+                        className="mt-2 w-full rounded-xl border border-[#efd2dc] bg-[#fffaf9] px-4 py-3 text-sm text-[#805065] outline-none transition focus:border-[#c9859d] focus:ring-2 focus:ring-[#f8dce5]"
+                      />
+
+                      <label
+                        htmlFor="thank-you-message"
+                        className="mt-4 block text-xs font-semibold uppercase tracking-wider text-[#a16e80]"
+                      >
+                        Personal message
+                      </label>
+                      <textarea
+                        id="thank-you-message"
+                        value={thankYouMessage}
+                        onChange={(event) =>
+                          setThankYouMessage(event.target.value)
+                        }
+                        maxLength={220}
+                        rows={3}
+                        className="mt-2 w-full resize-y rounded-xl border border-[#efd2dc] bg-[#fffaf9] px-4 py-3 text-sm leading-6 text-[#805065] outline-none transition focus:border-[#c9859d] focus:ring-2 focus:ring-[#f8dce5]"
+                      />
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setThankYouCardStyle("floral")}
+                          className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                            thankYouCardStyle === "floral"
+                              ? "border-[#b85c7b] bg-[#fff0f4] text-[#a65372]"
+                              : "border-[#efd2dc] bg-white text-[#a17e8b] hover:bg-[#fff5f7]"
+                          }`}
+                        >
+                          Blush Floral
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setThankYouCardStyle("classic")}
+                          className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                            thankYouCardStyle === "classic"
+                              ? "border-[#9a7848] bg-[#fbf2df] text-[#8b6a3e]"
+                              : "border-[#efd2dc] bg-white text-[#a17e8b] hover:bg-[#fff5f7]"
+                          }`}
+                        >
+                          Classic Gold
+                        </button>
+                      </div>
+
+                      <div
+                        className={`mt-5 overflow-hidden rounded-2xl border p-3 sm:p-4 ${
+                          thankYouCardStyle === "floral"
+                            ? "border-[#e8c5d1] bg-[#fff5f7]"
+                            : "border-[#e6d6b6] bg-[#fffaf2]"
+                        }`}
+                      >
+                        <div className="grid grid-cols-[38%_1fr] items-stretch gap-3 rounded-xl border border-white/80 p-2 sm:gap-5 sm:p-4">
+                          <div className="min-h-[190px] overflow-hidden rounded-lg border-4 border-white shadow-sm sm:min-h-[260px]">
+                            <img
+                              src="/eliora-faye.jpeg"
+                              alt="Eliora Faye"
+                              className="h-full min-h-[190px] w-full object-cover sm:min-h-[260px]"
+                            />
+                          </div>
+                          <div className="flex min-w-0 flex-col items-center justify-center py-2 text-center">
+                            <p
+                              className={`text-[8px] uppercase tracking-[0.16em] sm:text-[10px] sm:tracking-[0.25em] ${
+                                thankYouCardStyle === "floral"
+                                  ? "text-[#b08b98]"
+                                  : "text-[#9a7848]"
+                              }`}
+                            >
+                              A little blessing
+                            </p>
+                            <p
+                              className={`mt-2 font-serif text-base leading-tight sm:mt-3 sm:text-2xl ${
+                                thankYouCardStyle === "floral"
+                                  ? "text-[#a65372]"
+                                  : "text-[#8b6a3e]"
+                              }`}
+                            >
+                              Thank You
+                              {thankYouRecipient.trim()
+                                ? `, ${thankYouRecipient.trim()}`
+                                : "!"}
+                            </p>
+                            <p className="mt-2 font-serif text-[10px] italic text-[#9c7483] sm:text-sm">
+                              For being part of my special day
+                            </p>
+                            <Heart
+                              size={16}
+                              fill="currentColor"
+                              className={`mt-2 sm:mt-3 ${
+                                thankYouCardStyle === "floral"
+                                  ? "text-[#b85c7b]"
+                                  : "text-[#9a7848]"
+                              }`}
+                            />
+                            <p className="mt-2 max-h-20 w-full overflow-hidden whitespace-pre-wrap break-words text-[9px] leading-4 text-[#765466] sm:mt-3 sm:text-xs sm:leading-5">
+                              {thankYouMessage ||
+                                "Your personal message will appear here."}
+                            </p>
+                            <p
+                              className={`mt-3 font-serif text-lg italic sm:mt-4 sm:text-2xl ${
+                                thankYouCardStyle === "floral"
+                                  ? "text-[#a65372]"
+                                  : "text-[#8b6a3e]"
+                              }`}
+                            >
+                              Eliora Faye
+                            </p>
+                            <p className="mt-1 text-[7px] tracking-[0.12em] text-[#b08b98] sm:text-[9px] sm:tracking-[0.2em]">
+                              DE GUZMAN FAMILY · NOVEMBER 22, 2026
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={downloadThankYouCard}
+                        disabled={!thankYouMessage.trim()}
+                        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#b85c7b] px-5 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#a65372] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Download size={17} /> Download Thank-You Card
+                      </button>
+                      <p className="mt-2 text-center text-[11px] leading-5 text-[#b08b98]">
+                        Downloads a landscape SVG card with Eliora’s photo,
+                        ready to share or print.
+                      </p>
+                    </div>
+
                     <p className="mt-8 font-serif text-3xl italic text-[#a65372]">
                       Eliora Faye
                     </p>
@@ -4699,17 +4946,6 @@ async function renderKeepsakeCanvas(
       slot(2, 52, 40, 42, 18);
       slot(3, 6, 60, 88, 12);
     } else if (template.style === "portrait") slot(0, 15, 18, 70, 50, 45);
-
-    context.fillStyle = textColor;
-    context.textAlign = "center";
-    context.font = `italic ${Math.round(
-      width * 0.04
-    )}px Georgia, 'Times New Roman', serif`;
-    context.fillText("Eliora Faye", width / 2, scaleY(91.5));
-    context.font = `600 ${Math.round(width * 0.0167)}px Arial, sans-serif`;
-    context.letterSpacing = `${width * 0.0012}px`;
-    context.fillText("HOLY BAPTISM • NOVEMBER 22, 2026", width / 2, scaleY(97));
-    context.letterSpacing = "0px";
   } else {
     context.textAlign = "center";
     context.fillStyle = textColor;
@@ -4758,18 +4994,74 @@ async function renderKeepsakeCanvas(
       slot(2, 64, 44, 30, 27);
       slot(3, 34, 72, 60, 12);
     } else if (template.style === "portrait") slot(0, 38, 12, 52, 58, 45);
-
-    context.fillStyle = textColor;
-    context.textAlign = "center";
-    context.font = `italic ${Math.round(
-      width * 0.04
-    )}px Georgia, 'Times New Roman', serif`;
-    context.fillText("Eliora Faye", width / 2, scaleY(92));
-    context.font = `600 ${Math.round(width * 0.0167)}px Arial, sans-serif`;
-    context.letterSpacing = `${width * 0.0008}px`;
-    context.fillText("HOLY BAPTISM • NOVEMBER 22, 2026", width / 2, scaleY(97));
-    context.letterSpacing = "0px";
   }
+
+  // Decorative footer fills the unused lower space without adding any text.
+  // It is rendered by the shared canvas function, so previews and saved keepsakes match.
+  const footerY = isLandscape ? 91 : 85;
+  const footerColor = template.border || "#d7a1b2";
+  const drawHeart = (x: number, y: number, size: number) => {
+    context.save();
+    context.translate(x, y);
+    context.scale(size, size);
+    context.beginPath();
+    context.moveTo(0, 0.34);
+    context.bezierCurveTo(-0.12, 0.22, -0.52, -0.08, -0.43, -0.3);
+    context.bezierCurveTo(-0.36, -0.48, -0.12, -0.45, 0, -0.27);
+    context.bezierCurveTo(0.12, -0.45, 0.36, -0.48, 0.43, -0.3);
+    context.bezierCurveTo(0.52, -0.08, 0.12, 0.22, 0, 0.34);
+    context.closePath();
+    context.fillStyle = textColor;
+    context.globalAlpha = 0.78;
+    context.fill();
+    context.restore();
+  };
+
+  context.save();
+  context.strokeStyle = footerColor;
+  context.globalAlpha = 0.72;
+  context.lineWidth = Math.max(1.5, width * 0.0011);
+  context.lineCap = "round";
+  context.beginPath();
+  context.moveTo(scaleX(27), scaleY(footerY));
+  context.bezierCurveTo(
+    scaleX(35),
+    scaleY(footerY - 1.3),
+    scaleX(41),
+    scaleY(footerY + 1.3),
+    scaleX(47),
+    scaleY(footerY)
+  );
+  context.moveTo(scaleX(53), scaleY(footerY));
+  context.bezierCurveTo(
+    scaleX(59),
+    scaleY(footerY + 1.3),
+    scaleX(65),
+    scaleY(footerY - 1.3),
+    scaleX(73),
+    scaleY(footerY)
+  );
+  context.stroke();
+  context.restore();
+
+  drawHeart(scaleX(50), scaleY(footerY - 0.15), width * 0.018);
+  drawFlower(scaleX(20), scaleY(footerY), width * 0.012, textColor);
+  drawFlower(scaleX(80), scaleY(footerY), width * 0.012, textColor);
+
+  context.save();
+  context.fillStyle = "#d8a5b6";
+  [35, 39, 43, 57, 61, 65].forEach((x, index) => {
+    context.beginPath();
+    context.arc(
+      scaleX(x),
+      scaleY(footerY + (index % 2 === 0 ? 0 : 0.7)),
+      width * 0.0022,
+      0,
+      Math.PI * 2
+    );
+    context.fill();
+  });
+  context.restore();
 }
 
 function TemplatePreview({
